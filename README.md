@@ -1,4 +1,6 @@
-# Hub Multi-canal E-commerce
+# OmniList (Hub Multi-canal E-commerce)
+
+*List once. Sync everywhere.* Charte graphique : [docs/CHARTE.md](docs/CHARTE.md).
 
 Publier une fiche produit unique sur eBay, Amazon et TikTok Shop, synchroniser le stock (sans double vente) et centraliser les commandes.
 

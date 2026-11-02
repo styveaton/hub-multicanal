@@ -14,7 +14,7 @@ const EnvSchema = z.object({
   SMTP_PORT: z.coerce.number().default(1025),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  MAIL_FROM: z.string().default("Hub Multi-canal <no-reply@localhost>"),
+  MAIL_FROM: z.string().default("OmniList <no-reply@localhost>"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Alert } from "../components/Alert";
+import { AuthLayout } from "../components/AuthLayout";
 import { api, type Me } from "../lib/api";
 
 export default function SignupPage() {
@@ -30,32 +32,38 @@ export default function SignupPage() {
   }
 
   return (
-    <main>
-      <h1>Créer un compte</h1>
-      <p className="muted">Vous serez propriétaire de la boutique et pourrez inviter vos employés.</p>
-      <form onSubmit={onSubmit}>
-        <label>
+    <AuthLayout
+      title="Créer votre compte"
+      subtitle="Vous serez propriétaire de la boutique et pourrez inviter vos employés."
+      footer={
+        <>
+          Déjà un compte ? <Link href="/login">Se connecter</Link>
+        </>
+      }
+    >
+      <form className="form" onSubmit={onSubmit}>
+        <label className="field">
           Votre nom
-          <input name="name" required autoComplete="name" />
+          <input className="input" name="name" required autoComplete="name" />
         </label>
-        <label>
+        <label className="field">
           Nom de la boutique
-          <input name="organizationName" required autoComplete="organization" />
+          <input className="input" name="organizationName" required autoComplete="organization" />
         </label>
-        <label>
+        <label className="field">
           Email
-          <input name="email" type="email" required autoComplete="email" />
+          <input className="input" name="email" type="email" required autoComplete="email" />
         </label>
-        <label>
-          Mot de passe (8 caractères minimum)
-          <input name="password" type="password" required minLength={8} autoComplete="new-password" />
+        <label className="field">
+          Mot de passe
+          <input className="input" name="password" type="password" required minLength={8} autoComplete="new-password" />
+          <span className="field-hint">8 caractères minimum</span>
         </label>
-        {error && <p className="error" role="alert">{error}</p>}
-        <button disabled={pending}>{pending ? "Création…" : "Créer mon compte"}</button>
+        {error && <Alert kind="error">{error}</Alert>}
+        <button className="btn btn--block" disabled={pending}>
+          {pending ? "Création…" : "Créer mon compte"}
+        </button>
       </form>
-      <p>
-        Déjà un compte ? <Link href="/login">Se connecter</Link>
-      </p>
-    </main>
+    </AuthLayout>
   );
 }

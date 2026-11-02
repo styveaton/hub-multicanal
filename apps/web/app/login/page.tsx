@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Alert } from "../components/Alert";
+import { AuthLayout } from "../components/AuthLayout";
 import { api, type Me } from "../lib/api";
 
 export default function LoginPage() {
@@ -25,23 +27,29 @@ export default function LoginPage() {
   }
 
   return (
-    <main>
-      <h1>Se connecter</h1>
-      <form onSubmit={onSubmit}>
-        <label>
+    <AuthLayout
+      title="Bon retour"
+      subtitle="Connectez-vous pour gérer vos annonces et votre stock."
+      footer={
+        <>
+          Pas encore de compte ? <Link href="/signup">Créer un compte</Link>
+        </>
+      }
+    >
+      <form className="form" onSubmit={onSubmit}>
+        <label className="field">
           Email
-          <input name="email" type="email" required autoComplete="email" />
+          <input className="input" name="email" type="email" required autoComplete="email" />
         </label>
-        <label>
+        <label className="field">
           Mot de passe
-          <input name="password" type="password" required autoComplete="current-password" />
+          <input className="input" name="password" type="password" required autoComplete="current-password" />
         </label>
-        {error && <p className="error" role="alert">{error}</p>}
-        <button disabled={pending}>{pending ? "Connexion…" : "Se connecter"}</button>
+        {error && <Alert kind="error">{error}</Alert>}
+        <button className="btn btn--block" disabled={pending}>
+          {pending ? "Connexion…" : "Se connecter"}
+        </button>
       </form>
-      <p>
-        Pas encore de compte ? <Link href="/signup">Créer un compte</Link>
-      </p>
-    </main>
+    </AuthLayout>
   );
 }

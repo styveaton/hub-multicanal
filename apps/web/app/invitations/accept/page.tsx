@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { Alert } from "../../components/Alert";
+import { AuthLayout } from "../../components/AuthLayout";
 import { api, type Me } from "../../lib/api";
 
 interface Preview {
@@ -14,14 +17,15 @@ function AcceptInvitation() {
   const router = useRouter();
   const token = useSearchParams().get("token") ?? "";
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    if (!token) return setError("Lien d'invitation incomplet.");
+    if (!token) return setLoadError("Ce lien d'invitation est incomplet.");
     api<Preview>("/invitations/preview", { method: "POST", body: { token } }).then((res) => {
       if (res.ok) setPreview(res.data);
-      else setError(res.message);
+      else setLoadError(res.message);
     });
   }, [token]);
 
@@ -39,41 +43,66 @@ function AcceptInvitation() {
     else setError(res.message);
   }
 
+  if (loadError) {
+    return (
+      <AuthLayout title="Invitation indisponible" footer={<Link href="/login">Aller à la connexion</Link>}>
+        <div style={{ marginTop: "1.25rem" }}>
+          <Alert kind="error">{loadError}</Alert>
+        </div>
+      </AuthLayout>
+    );
+  }
+
   if (!preview) {
-    return <main>{error ? <p className="error">{error}</p> : <p className="muted">Chargement…</p>}</main>;
+    return (
+      <AuthLayout title="Invitation">
+        <p className="muted" style={{ marginTop: "1rem" }}>
+          Chargement…
+        </p>
+      </AuthLayout>
+    );
   }
 
   return (
-    <main>
-      <h1>Rejoindre {preview.organizationName}</h1>
-      <p className="muted">Invitation pour {preview.email}</p>
-      <form onSubmit={onSubmit}>
+    <AuthLayout
+      title={`Rejoindre ${preview.organizationName}`}
+      subtitle={
+        preview.userExists
+          ? `Vous avez déjà un compte OmniList (${preview.email}). Confirmez avec votre mot de passe.`
+          : `Créez votre accès employé pour ${preview.email}.`
+      }
+    >
+      <form className="form" onSubmit={onSubmit}>
         {!preview.userExists && (
-          <label>
+          <label className="field">
             Votre nom
-            <input name="name" required autoComplete="name" />
+            <input className="input" name="name" required autoComplete="name" />
           </label>
         )}
-        <label>
-          {preview.userExists ? "Votre mot de passe actuel" : "Choisissez un mot de passe (8 caractères minimum)"}
+        <label className="field">
+          {preview.userExists ? "Mot de passe actuel" : "Choisissez un mot de passe"}
           <input
+            className="input"
             name="password"
             type="password"
             required
             minLength={preview.userExists ? undefined : 8}
             autoComplete={preview.userExists ? "current-password" : "new-password"}
           />
+          {!preview.userExists && <span className="field-hint">8 caractères minimum</span>}
         </label>
-        {error && <p className="error" role="alert">{error}</p>}
-        <button disabled={pending}>{pending ? "Validation…" : "Accepter l'invitation"}</button>
+        {error && <Alert kind="error">{error}</Alert>}
+        <button className="btn btn--block" disabled={pending}>
+          {pending ? "Validation…" : "Accepter l'invitation"}
+        </button>
       </form>
-    </main>
+    </AuthLayout>
   );
 }
 
 export default function AcceptInvitationPage() {
   return (
-    <Suspense fallback={<main className="muted">Chargement…</main>}>
+    <Suspense fallback={<div className="loading">Chargement…</div>}>
       <AcceptInvitation />
     </Suspense>
   );

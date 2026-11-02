@@ -30,5 +30,6 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 - [ ] **DEV** : déploiement continu vers staging (dépend du choix de l'hébergeur)
 - [ ] **DEV** : limiter les tentatives de connexion (anti-force brute) et purger les sessions expirées
 - [ ] **DEV** : mot de passe oublié (non demandé par US1, utile avant la bêta)
-- [ ] **DESIGN** : charte graphique, maquettes onboarding et dashboard
+- [x] **DESIGN** : charte OmniList appliquée (couleurs, Inter, logo, emails) à toutes les pages existantes, voir docs/CHARTE.md
+- [ ] **DESIGN** : maquettes onboarding et dashboard
 - [ ] **QA** : plan de tests, environnement staging
