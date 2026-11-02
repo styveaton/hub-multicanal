@@ -6,7 +6,7 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 | --- | --- | --- |
 | 0 – Pré-requis | Accès eBay, Amazon SP-API, TikTok Shop, Stripe, domaines | Voir [DEMARCHES-EXTERNES.md](DEMARCHES-EXTERNES.md) |
 | 1 – Fondations (US1) | Comptes, rôles, invitation par email, CI/CD, Docker, schéma DB, staging | **Comptes et invitations faits**, staging à faire |
-| 2 – Fiche produit maître (US4-US5) | CRUD produits et variantes, médias, adaptation par canal | À venir |
+| 2 – Fiche produit maître (US4-US5) | CRUD produits et variantes, médias, adaptation par canal | **Fait** (QA manuelle à compléter) |
 | 3 – eBay (US3, US6-US7) | OAuth eBay, jetons chiffrés, publication via BullMQ | À venir |
 | 4 – Ventes et stock (US8-US9) | Stock central, anti double vente, import des commandes | À venir |
 | 5 – TikTok Shop + Amazon | Connecteurs, mapping, quotas | À venir |
@@ -33,3 +33,20 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 - [x] **DESIGN** : charte OmniList appliquée (couleurs, Inter, logo, emails) à toutes les pages existantes, voir docs/CHARTE.md
 - [ ] **DESIGN** : maquettes onboarding et dashboard
 - [ ] **QA** : plan de tests, environnement staging
+
+## Sprint 2 : ce qui est fait
+
+- Fiche maître : titre, description, marque, état, article unique (quantité 1) ou variantes (1 à 3 options, SKU, prix, quantité)
+- Photos : 1 à 12, ordre réglable, stockage compatible S3 (SeaweedFS en local), type vérifié sur le contenu
+- SKU uniques dans la boutique
+- Onglets par canal (eBay, Amazon, TikTok Shop) : activation, titre spécifique (limite par canal), catégorie, prix maître / % / fixe
+- Aperçu indicatif des frais par article ou variante, calculé de la même façon côté API et écran
+- Écrans liste produits (recherche) et fiche avec onglets, responsive
+- 47 nouveaux tests (36 API produits/photos, 11 prix et frais)
+
+## Sprint 2 : ce qui reste
+
+- [ ] **DEV** : catégories officielles par canal (avec l'API eBay au Sprint 3, puis Amazon et TikTok Shop)
+- [ ] **DEV** : nettoyer les photos envoyées mais jamais rattachées à un produit (tâche planifiée)
+- [ ] **DEV** : ajuster les taux de frais indicatifs avec les vrais contrats
+- [ ] **QA** : tests manuels formulaires et envois sur plusieurs navigateurs

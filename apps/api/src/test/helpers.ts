@@ -2,19 +2,22 @@ import { prisma } from "@hub/db";
 import { buildApp } from "../app.js";
 import { loadEnv } from "../env.js";
 import { MemoryMailer } from "../lib/mailer.js";
+import { MemoryStorage } from "../lib/storage.js";
 import { SESSION_COOKIE } from "../plugins/auth.js";
 
 export { prisma };
 
 export function createTestApp() {
   const mailer = new MemoryMailer();
-  const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: "http://web.test" }), { prisma, mailer });
-  return { app, mailer };
+  const storage = new MemoryStorage();
+  const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: "http://web.test" }), { prisma, mailer, storage });
+  return { app, mailer, storage };
 }
 
 export async function resetDatabase() {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "Session", "Invitation", "Membership", "Organization", "User" CASCADE',
+    `TRUNCATE TABLE "ProductChannel", "Sku", "ProductVariant", "ProductPhoto", "Product",
+      "Session", "Invitation", "Membership", "Organization", "User" CASCADE`,
   );
 }
 
@@ -34,4 +37,21 @@ export function tokenFromLastEmail(mailer: MemoryMailer): string {
   const token = url ? new URL(url).searchParams.get("token") : null;
   if (!token) throw new Error("aucun lien d'invitation dans l'email");
   return token;
+}
+
+/** Petites images valides (en-têtes réels) pour les tests d'envoi. */
+export const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(64, 1)]);
+export const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(64, 2)]);
+
+/** Corps multipart/form-data contenant un fichier « file ». */
+export function multipartFile(content: Buffer, filename = "photo.jpg", contentType = "image/jpeg") {
+  const boundary = "----omnilist-test-boundary";
+  const head = Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`,
+  );
+  const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+  return {
+    payload: Buffer.concat([head, content, tail]),
+    headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+  };
 }

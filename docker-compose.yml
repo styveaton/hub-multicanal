@@ -1,7 +1,8 @@
-# Infrastructure locale : PostgreSQL, Redis (files BullMQ) et Mailpit (emails d'invitation).
+# Infrastructure locale : PostgreSQL, Redis (files BullMQ), Mailpit (emails) et SeaweedFS (photos, compatible S3).
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped # redémarre avec Docker Desktop
     environment:
       POSTGRES_USER: hub
       POSTGRES_PASSWORD: hub
@@ -16,13 +17,28 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped # redémarre avec Docker Desktop
     ports: ["6379:6379"]
 
   mailpit:
     image: axllent/mailpit:latest
+    restart: unless-stopped # redémarre avec Docker Desktop
     ports:
       - "1025:1025" # SMTP
       - "8025:8025" # interface web : http://localhost:8025
 
+  # Stockage des photos produits, compatible S3 (AWS S3, Cloudflare R2, Scaleway… en production).
+  # SeaweedFS : MinIO ne publie plus d image Docker gratuite.
+  s3:
+    image: chrislusf/seaweedfs:latest
+    restart: unless-stopped # redémarre avec Docker Desktop
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=1024 -volume.max=20
+    ports:
+      - "8333:8333" # API S3
+    volumes:
+      - s3data:/data
+      - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+
 volumes:
   pgdata:
+  s3data:

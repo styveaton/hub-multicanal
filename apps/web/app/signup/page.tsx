@@ -27,7 +27,7 @@ export default function SignupPage() {
       },
     });
     setPending(false);
-    if (res.ok) router.push("/team");
+    if (res.ok) router.push("/products");
     else setError(res.message);
   }
 

@@ -14,7 +14,8 @@ Le suivi du projet se fait dans ClickUp (Space OneHandBusiness, dossier « Hub M
 | API (auth, rôles, invitations) | Fastify 5 + Zod | `apps/api` |
 | Jobs de synchronisation | BullMQ + Redis | `apps/worker` |
 | Base de données | PostgreSQL + Prisma | `packages/db` |
-| Types et règles partagés | TypeScript | `packages/shared` |
+| Photos produits | Stockage compatible S3 (SeaweedFS en local) | `apps/api/src/lib/storage.ts` |
+| Types et règles partagés (rôles, prix, frais) | TypeScript | `packages/shared` |
 
 Monorepo géré avec les **npm workspaces**, TypeScript strict partout.
 
@@ -25,19 +26,24 @@ Prérequis : Node 22 et Docker Desktop.
 ```bash
 npm install
 cp .env.example .env
-npm run infra:up          # Postgres, Redis, Mailpit
+npm run infra:up          # Postgres, Redis, Mailpit, SeaweedFS (photos)
 npm run db:migrate        # crée les tables de la base de développement
 npm run db:test:prepare   # crée et migre la base de test (hub_test)
 npm run build -w @hub/shared -w @hub/db
 npm run dev               # web :3000, API :4000 et worker en même temps
 ```
 
-- Application : http://localhost:3000 (inscription, connexion, équipe)
+- Application : http://localhost:3000 (inscription, connexion, produits, équipe)
 - Postgres du projet : `localhost:5433` (le port 5432 est pris par le PostgreSQL 14 installé sur Windows)
 - API : http://localhost:4000/health
 - Emails d'invitation (Mailpit) : http://localhost:8025
+- Stockage des photos (API S3, SeaweedFS) : `localhost:8333`, bucket `omnilist-media` créé au démarrage de l'API
 
 Le front appelle l'API via `/api/*` (proxy Next.js), ce qui garde le cookie de session sur la même origine.
+
+Les conteneurs ont `restart: unless-stopped` : ils redémarrent avec Docker Desktop. S'ils sont arrêtés, relancer `npm run infra:up`.
+
+> MinIO ne publie plus d'image Docker gratuite : le stockage local utilise SeaweedFS. Le code ne parle que le protocole S3, donc AWS S3, Cloudflare R2 ou Scaleway conviennent en production (variables `S3_*`).
 
 ## Commandes
 
@@ -87,6 +93,28 @@ Sécurité :
 - Jetons de session et d'invitation aléatoires : seul leur hash est stocké en base.
 - Cookie `httpOnly`, `SameSite=Lax`, et `Secure` en production.
 - Une invitation expire après 7 jours et ne peut servir qu'une fois.
+
+## API produits (US4-US5)
+
+Accessible au propriétaire et à l'employé (permission `products:manage`), toujours limitée à la boutique connectée. Montants en **centimes** (USD).
+
+| Route | Rôle |
+| --- | --- |
+| `POST /photos` | Envoie une photo (JPEG, PNG ou WebP, 10 Mo max ; type vérifié sur le contenu) |
+| `GET /photos/:id` | Affiche une photo de la boutique |
+| `DELETE /photos/:id` | Supprime une photo pas encore rattachée |
+| `GET /products?q=` | Liste avec recherche par titre ou SKU |
+| `POST /products` | Crée la fiche maître : article unique (quantité 1) ou variantes, 1 à 12 photos |
+| `GET /products/:id` | Fiche complète, avec les réglages et l'aperçu des frais de chaque canal |
+| `PUT /products/:id` | Modifie la fiche (photos dans l'ordre voulu, variantes) |
+| `DELETE /products/:id` | Supprime le produit et ses photos |
+| `PUT /products/:id/channels/:channel` | Titre, catégorie et prix pour `EBAY`, `AMAZON` ou `TIKTOK_SHOP` |
+
+Règles :
+- SKU unique dans la boutique, sans tenir compte de la casse (article unique comme variante).
+- Variantes : 1 à 3 options identiques pour toutes (ex. Taille, Couleur), pas de doublon.
+- Prix par canal : prix maître, pourcentage (-90 % à +300 %) ou prix fixe (article unique seulement).
+- Frais : taux **indicatifs** dans `packages/shared/src/pricing.ts` (`INDICATIVE_FEES`), à ajuster selon vos contrats.
 
 ## Feuille de route
 

@@ -36,14 +36,17 @@ model User {
 
 // Un compte vendeur (l'entreprise). Porte l'abonnement Stripe (Sprint 6).
 model Organization {
-  id               String       @id @default(cuid())
+  id               String         @id @default(cuid())
   name             String
-  stripeCustomerId String?      @unique
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  stripeCustomerId String?        @unique
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
   memberships      Membership[]
   invitations      Invitation[]
   sessions         Session[]
+  products         Product[]
+  photos           ProductPhoto[]
+  skus             Sku[]
 }
 
 // Session de connexion : le cookie porte un jeton aléatoire, seul son hash est stocké.
@@ -89,4 +92,117 @@ model Invitation {
 
   @@index([organizationId, status])
   @@index([email])
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 2 (US4-US5) : fiche produit maître, photos, variantes, réglages par canal
+// ---------------------------------------------------------------------------
+
+enum ProductMode {
+  SINGLE // article unique : quantité 1
+  VARIANTS // plusieurs variantes, chacune avec SKU, prix et quantité
+}
+
+enum ProductCondition {
+  NEW
+  USED_LIKE_NEW
+  USED_GOOD
+  USED_FAIR
+}
+
+enum Channel {
+  EBAY
+  AMAZON
+  TIKTOK_SHOP
+}
+
+enum PriceMode {
+  BASE // prix de la fiche maître
+  FIXED // prix fixe pour ce canal (article unique seulement)
+  PERCENT // prix maître +/- un pourcentage
+}
+
+model Product {
+  id             String           @id @default(cuid())
+  organizationId String
+  title          String
+  description    String
+  brand          String?
+  condition      ProductCondition @default(NEW)
+  mode           ProductMode
+  currency       String           @default("USD")
+  // Article unique : prix en centimes (quantité toujours 1, SKU dans Sku).
+  priceCents     Int?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  photos         ProductPhoto[]
+  variants       ProductVariant[]
+  channels       ProductChannel[]
+  skus           Sku[]
+
+  @@index([organizationId, updatedAt])
+}
+
+model ProductVariant {
+  id         String  @id @default(cuid())
+  productId  String
+  // Ex. {"Taille": "M", "Couleur": "Rouge"}
+  attributes Json
+  priceCents Int
+  quantity   Int
+  position   Int
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku        Sku?
+
+  @@index([productId])
+}
+
+// Registre des SKU : garantit qu'un SKU est unique dans toute la boutique
+// (article unique ou variante), ce dont la synchronisation des canaux a besoin.
+model Sku {
+  id             String          @id @default(cuid())
+  organizationId String
+  code           String
+  productId      String
+  variantId      String?         @unique
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant        ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code])
+  @@index([productId])
+}
+
+// Photo envoyée par la boutique. Sans produit tant qu'elle n'est pas rattachée à une fiche.
+model ProductPhoto {
+  id             String       @id @default(cuid())
+  organizationId String
+  productId      String?
+  storageKey     String       @unique
+  contentType    String
+  sizeBytes      Int
+  position       Int          @default(0)
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product        Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, productId])
+}
+
+// Adaptation de la fiche pour un canal (US5) : titre, catégorie, prix.
+model ProductChannel {
+  id         String    @id @default(cuid())
+  productId  String
+  channel    Channel
+  enabled    Boolean   @default(true)
+  title      String?
+  category   String?
+  priceMode  PriceMode @default(BASE)
+  priceCents Int? // si FIXED
+  percentBps Int? // si PERCENT, en centièmes de % (1050 = +10,5 %)
+  updatedAt  DateTime  @updatedAt
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, channel])
 }

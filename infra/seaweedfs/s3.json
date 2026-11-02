@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "hub-local",
+      "credentials": [{ "accessKey": "hub", "secretKey": "hub-s3-secret" }],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

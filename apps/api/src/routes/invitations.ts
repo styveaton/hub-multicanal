@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import type { Invitation } from "@hub/db";
 import { hashPassword, hashToken, newToken, verifyPassword } from "../lib/crypto.js";
+import { HttpError } from "../lib/errors.js";
 import { invitationEmail } from "../lib/mailer.js";
 import { buildMe } from "../lib/me.js";
 import { requirePermission, startSession } from "../plugins/auth.js";
@@ -23,15 +24,6 @@ const serialize = (inv: Invitation) => ({
   createdAt: inv.createdAt,
 });
 
-/** Erreur métier : renvoyée telle quelle au client par le gestionnaire d'erreurs de l'app. */
-class HttpError extends Error {
-  constructor(
-    readonly statusCode: number,
-    code: string,
-  ) {
-    super(code);
-  }
-}
 
 export const invitationRoutes: FastifyPluginAsync = async (app) => {
   /** Retrouve une invitation encore utilisable à partir du jeton du lien. */

@@ -16,7 +16,7 @@ interface NavItem {
 
 // Ordre et libellés repris de la charte (Listings, Inventory, Channels, Analytics).
 const NAV: NavItem[] = [
-  { key: "products", label: "Annonces", icon: Tag },
+  { key: "products", label: "Produits", icon: Tag, href: "/products" },
   { key: "stock", label: "Stock", icon: Layers },
   { key: "channels", label: "Canaux", icon: Share2, permission: "channels:manage" },
   { key: "analytics", label: "Analytique", icon: BarChart3 },
@@ -47,7 +47,7 @@ export function AppShell({ me, active, onLogout, children }: {
     <>
       <header className="app-header">
         <div className="app-header-inner">
-          <Link href="/team" aria-label="OmniList">
+          <Link href="/products" aria-label="OmniList">
             <Logo variant="inverse" size={34} />
           </Link>
           <nav className="app-nav" aria-label="Navigation principale">

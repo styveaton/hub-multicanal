@@ -39,7 +39,7 @@ function AcceptInvitation() {
       body: { token, name: form.get("name") ?? undefined, password: form.get("password") },
     });
     setPending(false);
-    if (res.ok) router.push("/team");
+    if (res.ok) router.push("/products");
     else setError(res.message);
   }
 
