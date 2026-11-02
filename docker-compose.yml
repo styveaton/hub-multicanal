@@ -1,0 +1,27 @@
+# Infrastructure locale : PostgreSQL, Redis (files BullMQ) et Mailpit (emails d'invitation).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hub
+      POSTGRES_PASSWORD: hub
+      POSTGRES_DB: hub
+    ports: ["5433:5432"] # 5433 : le port 5432 est pris par un PostgreSQL local
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hub"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # interface web : http://localhost:8025
+
+volumes:
+  pgdata:

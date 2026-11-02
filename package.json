@@ -1,0 +1,24 @@
+{
+  "name": "hub-multicanal",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Hub multi-canal e-commerce : publier, synchroniser le stock et centraliser les commandes (eBay, Amazon, TikTok Shop).",
+  "workspaces": ["packages/*", "apps/*"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm run generate -w @hub/db",
+    "db:migrate": "npm run migrate -w @hub/db",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

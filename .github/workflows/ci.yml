@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hub
+          POSTGRES_PASSWORD: hub
+          POSTGRES_DB: hub
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hub" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://hub:hub@localhost:5432/hub
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @hub/shared -w @hub/db
+      - run: npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
+      - run: npm run typecheck
+      - run: npm test
