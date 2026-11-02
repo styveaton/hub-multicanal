@@ -6,7 +6,8 @@ services:
       POSTGRES_USER: hub
       POSTGRES_PASSWORD: hub
       POSTGRES_DB: hub
-    ports: ["5433:5432"] # 5433 : le port 5432 est pris par un PostgreSQL local
+    # Port Windows de la base (5432 est pris par le PostgreSQL 14 local). Modifiable via POSTGRES_PORT dans .env.
+    ports: ["${POSTGRES_PORT:-5433}:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U hub"]
