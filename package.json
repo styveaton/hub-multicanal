@@ -3,20 +3,27 @@
   "private": true,
   "version": "0.1.0",
   "description": "Hub multi-canal e-commerce : publier, synchroniser le stock et centraliser les commandes (eBay, Amazon, TikTok Shop).",
-  "workspaces": ["packages/*", "apps/*"],
-  "engines": { "node": ">=22" },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "concurrently -n api,worker,web -c blue,magenta,green \"npm run dev -w @hub/api\" \"npm run dev -w @hub/worker\" \"npm run dev -w @hub/web\"",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "db:generate": "npm run generate -w @hub/db",
     "db:migrate": "npm run migrate -w @hub/db",
     "infra:up": "docker compose up -d",
-    "infra:down": "docker compose down"
+    "infra:down": "docker compose down",
+    "db:test:prepare": "npm run migrate:test -w @hub/db"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "concurrently": "^9.2.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "./globals.css";
 
 export const metadata = {
   title: "Hub Multi-canal",
@@ -8,7 +9,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr">
-      <body style={{ fontFamily: "system-ui, sans-serif", margin: 0 }}>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

@@ -5,7 +5,7 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 | Sprint | Contenu | État du dépôt |
 | --- | --- | --- |
 | 0 – Pré-requis | Accès eBay, Amazon SP-API, TikTok Shop, Stripe, domaines | Voir [DEMARCHES-EXTERNES.md](DEMARCHES-EXTERNES.md) |
-| 1 – Fondations (US1) | Comptes, rôles, invitation par email, CI/CD, Docker, schéma DB, staging | **Squelette en place** |
+| 1 – Fondations (US1) | Comptes, rôles, invitation par email, CI/CD, Docker, schéma DB, staging | **Comptes et invitations faits**, staging à faire |
 | 2 – Fiche produit maître (US4-US5) | CRUD produits et variantes, médias, adaptation par canal | À venir |
 | 3 – eBay (US3, US6-US7) | OAuth eBay, jetons chiffrés, publication via BullMQ | À venir |
 | 4 – Ventes et stock (US8-US9) | Stock central, anti double vente, import des commandes | À venir |
@@ -20,10 +20,15 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 - Règles de permissions US1 et garde `requirePermission` dans l'API, avec tests
 - CI GitHub Actions : install, migration, typecheck, tests
 - Modèles de variables pour local, staging et production
+- Inscription du propriétaire avec création de la boutique, connexion et déconnexion (sessions en base, cookie httpOnly)
+- Invitation d'un employé par email : création, renvoi, annulation, expiration après 7 jours, acceptation par lien
+- Pages web provisoires : inscription, connexion, équipe, acceptation d'invitation
+- 28 tests (dont 20 tests d'intégration US1 sur une base dédiée `hub_test`)
 
 ## Sprint 1 : ce qui reste
 
-- [ ] **DEV** : inscription et connexion (sessions), création de l'organisation, routes d'invitation (créer, accepter, révoquer) avec envoi d'email
-- [ ] **DEV** : déploiement continu vers staging
+- [ ] **DEV** : déploiement continu vers staging (dépend du choix de l'hébergeur)
+- [ ] **DEV** : limiter les tentatives de connexion (anti-force brute) et purger les sessions expirées
+- [ ] **DEV** : mot de passe oublié (non demandé par US1, utile avant la bêta)
 - [ ] **DESIGN** : charte graphique, maquettes onboarding et dashboard
 - [ ] **QA** : plan de tests, environnement staging

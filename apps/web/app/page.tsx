@@ -1,8 +1,13 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
-    <main style={{ maxWidth: 640, margin: "4rem auto", padding: "0 1rem" }}>
+    <main>
       <h1>Hub Multi-canal</h1>
-      <p>Squelette Sprint 1. Les écrans d&apos;onboarding et le dashboard arrivent avec les maquettes.</p>
+      <p className="muted">Une fiche produit, tous vos canaux de vente : eBay, Amazon, TikTok Shop.</p>
+      <p>
+        <Link href="/signup">Créer un compte</Link> · <Link href="/login">Se connecter</Link>
+      </p>
     </main>
   );
 }

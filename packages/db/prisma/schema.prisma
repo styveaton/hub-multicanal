@@ -31,6 +31,7 @@ model User {
   updatedAt    DateTime     @updatedAt
   memberships  Membership[]
   sentInvites  Invitation[] @relation("InvitedBy")
+  sessions     Session[]
 }
 
 // Un compte vendeur (l'entreprise). Porte l'abonnement Stripe (Sprint 6).
@@ -42,6 +43,21 @@ model Organization {
   updatedAt        DateTime     @updatedAt
   memberships      Membership[]
   invitations      Invitation[]
+  sessions         Session[]
+}
+
+// Session de connexion : le cookie porte un jeton aléatoire, seul son hash est stocké.
+model Session {
+  id             String       @id @default(cuid())
+  tokenHash      String       @unique
+  userId         String
+  organizationId String
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Membership {
