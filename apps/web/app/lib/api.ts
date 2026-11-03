@@ -113,6 +113,55 @@ export interface ProductListItem {
   updatedAt: string;
 }
 
+/** Ligne de la page Stock. */
+export interface StockItem {
+  sku: string;
+  productId: string;
+  title: string;
+  attributes: Record<string, string> | null;
+  quantity: number;
+  photoUrl: string | null;
+  channels: Channel[];
+}
+
+export type SyncLogType = "SALE" | "RESTOCK" | "ADJUSTMENT" | "OVERSOLD" | "UNKNOWN_SKU" | "CHANNEL_UPDATE" | "CHANNEL_ERROR";
+
+export interface SyncLogEntry {
+  id: string;
+  type: SyncLogType;
+  channel: Channel | null;
+  sku: string | null;
+  productId: string | null;
+  orderId: string | null;
+  delta: number | null;
+  quantityAfter: number | null;
+  message: string | null;
+  createdAt: string;
+}
+
+export type OrderStatus = "PAID" | "SHIPPED" | "COMPLETED" | "CANCELLED" | "REFUNDED";
+
+export interface Order {
+  id: string;
+  channel: Channel | null;
+  source: "CHANNEL" | "MANUAL";
+  externalOrderId: string;
+  status: OrderStatus;
+  buyerName: string | null;
+  currency: string;
+  totalCents: number;
+  placedAt: string;
+  oversold: boolean;
+  lines: Array<{ sku: string; productId: string | null; title: string; quantity: number; unitPriceCents: number; oversoldQty: number; matched: boolean }>;
+}
+
+export interface Page<T> {
+  total: number;
+  page: number;
+  pageSize: number;
+  items: T[];
+}
+
 export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; code: string; message: string; details: Record<string, unknown> };
@@ -132,6 +181,7 @@ function messageFor(code: string, data: Record<string, unknown>): string {
   }
   if (code === "sku_taken") return errors.sku_taken(String(data.sku));
   if (code === "title_too_long") return errors.title_too_long(Number(data.max));
+  if (code === "insufficient_stock" && data.sku) return `${errors.insufficient_stock} (${String(data.sku)} : ${Number(data.available)})`;
   const m = errors[code as keyof typeof errors];
   return typeof m === "string" ? m : errors.generic;
 }

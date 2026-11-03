@@ -21,6 +21,7 @@ import {
 } from "@hub/shared";
 import { HttpError } from "../lib/errors.js";
 import { requirePermission } from "../plugins/auth.js";
+import { listingNeedsSync } from "@hub/channels";
 import { SUPPORTED_CHANNELS } from "./channels.js";
 import { photoUrl } from "./photos.js";
 
@@ -140,13 +141,15 @@ type ChannelRow = ProductWithRelations["channels"][number];
 /** Articles vendables : l'article unique, ou chaque variante. */
 function sellableItems(p: ProductWithRelations) {
   if (p.mode === "SINGLE") {
-    return [{ variantId: null as string | null, sku: p.skus[0]?.code ?? "", priceCents: p.priceCents ?? 0, quantity: 1, attributes: undefined }];
+    return [
+      { variantId: null as string | null, sku: p.skus[0]?.code ?? "", priceCents: p.priceCents ?? 0, quantity: p.skus[0]?.quantity ?? 0, attributes: undefined },
+    ];
   }
   return p.variants.map((v) => ({
     variantId: v.id as string | null,
     sku: v.sku?.code ?? "",
     priceCents: v.priceCents,
-    quantity: v.quantity,
+    quantity: v.sku?.quantity ?? 0,
     attributes: v.attributes as Record<string, string> | undefined,
   }));
 }
@@ -220,7 +223,7 @@ function depopWarnings(p: ProductWithRelations, details: DepopDetails, rule: Pri
 
 /** Annonces en ligne ou en cours d'envoi : toute modification de la fiche doit être renvoyée. */
 const hasActiveListings = (p: ProductWithRelations, channel: Channel) =>
-  p.listings.some((l) => l.channel === channel && (l.status === "LISTED" || l.status === "PENDING"));
+  p.listings.some((l) => l.channel === channel && listingNeedsSync(l));
 
 function serializeProduct(p: ProductWithRelations) {
   const items = sellableItems(p);
@@ -243,7 +246,7 @@ function serializeProduct(p: ProductWithRelations) {
       sku: v.sku?.code ?? "",
       attributes: v.attributes as Record<string, string>,
       priceCents: v.priceCents,
-      quantity: v.quantity,
+      quantity: v.sku?.quantity ?? 0,
     })),
     channels: CHANNELS.map((c) => serializeChannel(p, c)),
     createdAt: p.createdAt,
@@ -293,6 +296,11 @@ async function attachPhotos(tx: Prisma.TransactionClient, productId: string, pho
   }
 }
 
+/**
+ * Écrit variantes et SKU sans toucher au stock existant : le stock central (Sku.quantity) ne change
+ * que par une vente, une annulation ou un ajustement (page Stock). La quantité saisie ne sert
+ * qu'au stock de départ d'un nouvel article ou d'une nouvelle variante.
+ */
 async function writeVariantsAndSkus(
   tx: Prisma.TransactionClient,
   organizationId: string,
@@ -300,24 +308,28 @@ async function writeVariantsAndSkus(
   input: ProductInput,
   existingVariantIds: string[],
 ) {
-  await tx.sku.deleteMany({ where: { productId } });
-
   if (input.mode === "SINGLE") {
+    // Les SKU des variantes partent avec elles (suppression en cascade).
     await tx.productVariant.deleteMany({ where: { productId } });
-    await tx.sku.create({ data: { organizationId, productId, code: input.sku } });
+    const single = await tx.sku.findFirst({ where: { productId, variantId: null } });
+    if (single) await tx.sku.update({ where: { id: single.id }, data: { code: input.sku } });
+    else await tx.sku.create({ data: { organizationId, productId, code: input.sku, quantity: 1 } });
     return;
   }
 
+  await tx.sku.deleteMany({ where: { productId, variantId: null } });
   const keep = input.variants.map((v) => v.id).filter((id): id is string => !!id && existingVariantIds.includes(id));
   await tx.productVariant.deleteMany({ where: { productId, id: { notIn: keep } } });
 
   for (const [position, v] of input.variants.entries()) {
-    const data = { attributes: v.attributes, priceCents: v.priceCents, quantity: v.quantity, position };
-    const variant =
-      v.id && keep.includes(v.id)
-        ? await tx.productVariant.update({ where: { id: v.id }, data })
-        : await tx.productVariant.create({ data: { ...data, productId } });
-    await tx.sku.create({ data: { organizationId, productId, variantId: variant.id, code: v.sku } });
+    const data = { attributes: v.attributes, priceCents: v.priceCents, position };
+    if (v.id && keep.includes(v.id)) {
+      await tx.productVariant.update({ where: { id: v.id }, data });
+      await tx.sku.update({ where: { variantId: v.id }, data: { code: v.sku } });
+    } else {
+      const variant = await tx.productVariant.create({ data: { ...data, productId } });
+      await tx.sku.create({ data: { organizationId, productId, variantId: variant.id, code: v.sku, quantity: v.quantity } });
+    }
   }
 }
 

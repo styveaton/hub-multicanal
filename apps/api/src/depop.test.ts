@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { RetryableChannelError } from "@hub/channels";
-import { JPEG, TEST_WEB_URL, createTestApp, multipartFile, prisma, resetDatabase, sessionCookie, tokenFromLastEmail } from "./test/helpers.js";
+import { JPEG, TEST_PUBLIC_API_URL, TEST_WEB_URL, createTestApp, multipartFile, prisma, resetDatabase, sessionCookie, tokenFromLastEmail } from "./test/helpers.js";
 
 const { app, mailer, queue, fakeDepop, channelDeps } = createTestApp();
 type Cookies = Record<string, string>;
@@ -211,8 +211,8 @@ describe("publication sur Depop", () => {
     });
     // Depop télécharge la photo sans session, par le lien signé.
     const photo = new URL(sent.pictures[0]!.url);
-    expect(photo.origin + photo.pathname.replace(/\/public.*/, "")).toBe(`${TEST_WEB_URL}/api`);
-    const path = photo.pathname.replace(/^\/api/, "") + photo.search;
+    expect(photo.origin).toBe(TEST_PUBLIC_API_URL);
+    const path = photo.pathname + photo.search;
     expect((await app.inject({ method: "GET", url: path })).statusCode).toBe(200);
     expect((await app.inject({ method: "GET", url: path.replace(/sig=[^&]+/, "sig=faux") })).statusCode).toBe(403);
   });
@@ -284,9 +284,10 @@ describe("publication sur Depop", () => {
     expect(fakeDepop.products.get("TS-M")!.body).toMatchObject({ size_set_id: 54, size_id: 4, quantity: 2, condition: "brand_new" });
     expect(fakeDepop.products.get("TS-L")!.body).toMatchObject({ size_id: 5 });
 
-    // TS-M en rupture, TS-L retirée de la fiche.
+    // TS-M en rupture (stock mis à 0 sur la page Stock), TS-L retirée de la fiche.
+    await app.inject({ method: "POST", url: "/stock/TS-M/adjust", cookies: owner, payload: { set: 0 } });
     const ids = p.variants.map((v: { id: string }) => v.id);
-    const next = { ...body, variants: [{ ...variants[0], id: ids[0], quantity: 0 }] };
+    const next = { ...body, variants: [{ ...variants[0], id: ids[0] }] };
     await app.inject({ method: "PUT", url: `/products/${p.id}`, cookies: owner, payload: next });
     await queue.drain(channelDeps);
     expect(fakeDepop.products.get("TS-M")!.status).toBe("sold");

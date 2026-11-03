@@ -1,4 +1,4 @@
-import type { Channel, ChannelConnection, Prisma, PrismaClient } from "@hub/db";
+import type { ChannelConnection, Prisma, PrismaClient } from "@hub/db";
 import { applyPriceRule, depopIssues, isUsState, type DepopDetails, type PriceRule, type ProductConditionCode } from "@hub/shared";
 import type { MediaSigner, TokenCipher } from "./crypto.js";
 import { DepopApiError, depopProductUrl, type DepopClient } from "./depop/client.js";
@@ -17,29 +17,34 @@ export interface ChannelDeps {
   now?: () => Date;
 }
 
-export const CHANNEL_QUEUE = "channel-sync";
-
-export type ChannelJob =
-  | { name: "publish"; data: { productId: string; channel: Channel } }
-  | { name: "remove"; data: { organizationId: string; channel: Channel; skus: string[] } };
-
 /** Erreur temporaire : le job est relancé par BullMQ. */
 export class RetryableChannelError extends Error {}
 
-export async function processChannelJob(deps: ChannelDeps, job: ChannelJob): Promise<void> {
-  if (job.data.channel !== "DEPOP") return; // autres canaux : pas encore branchés
-  if (job.name === "publish") return publishToDepop(deps, job.data.productId);
-  return removeFromDepop(deps, job.data.organizationId, job.data.skus);
+/** Trace une action sur un canal dans le journal de synchronisation. */
+async function logChannel(
+  deps: ChannelDeps,
+  data: { organizationId: string; productId: string | null; skuCode: string; ok: boolean; message: string },
+) {
+  await deps.prisma.syncLog.create({
+    data: {
+      organizationId: data.organizationId,
+      type: data.ok ? "CHANNEL_UPDATE" : "CHANNEL_ERROR",
+      channel: "DEPOP",
+      skuCode: data.skuCode,
+      productId: data.productId,
+      message: data.message,
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Jetons
 // ---------------------------------------------------------------------------
 
-class NotConnectedError extends Error {}
+export class NotConnectedError extends Error {}
 
 /** Jeton d'accès valide, rafraîchi s'il expire dans moins d'une minute. */
-async function depopAccessToken(deps: ChannelDeps, connection: ChannelConnection): Promise<string> {
+export async function depopAccessToken(deps: ChannelDeps, connection: ChannelConnection): Promise<string> {
   const now = deps.now?.() ?? new Date();
   if (connection.status !== "CONNECTED") throw new NotConnectedError();
   if (connection.accessTokenExpiresAt && connection.accessTokenExpiresAt.getTime() - now.getTime() > 60_000) {
@@ -96,12 +101,12 @@ function priceRule(row: LoadedProduct["channels"][number] | undefined): PriceRul
 
 function sellableItems(p: LoadedProduct, rule: PriceRule): SellableItem[] {
   if (p.mode === "SINGLE") {
-    return [{ sku: p.skus[0]?.code ?? "", priceCents: applyPriceRule(p.priceCents ?? 0, rule), quantity: 1 }];
+    return [{ sku: p.skus[0]?.code ?? "", priceCents: applyPriceRule(p.priceCents ?? 0, rule), quantity: p.skus[0]?.quantity ?? 0 }];
   }
   return p.variants.map((v) => ({
     sku: v.sku?.code ?? "",
     priceCents: applyPriceRule(v.priceCents, rule),
-    quantity: v.quantity,
+    quantity: v.sku?.quantity ?? 0,
     attributes: v.attributes as Record<string, string>,
   }));
 }
@@ -128,7 +133,7 @@ async function markAll(deps: ChannelDeps, p: LoadedProduct, skus: string[], erro
   }
 }
 
-async function publishToDepop(deps: ChannelDeps, productId: string) {
+export async function publishToDepop(deps: ChannelDeps, productId: string) {
   const p = await deps.prisma.product.findUnique({ where: { id: productId }, include: productInclude });
   if (!p) return;
   const settings = p.channels[0];
@@ -186,8 +191,10 @@ async function publishToDepop(deps: ChannelDeps, productId: string) {
     try {
       if (item.quantity <= 0) {
         // Rupture de stock : l'annonce passe en « vendue » ; un nouvel envoi la remet en vente.
-        if (existing && isOnDepop(existing)) await deps.depop.markSold(token, item.sku);
+        const wasOnDepop = existing != null && isOnDepop(existing);
+        if (wasOnDepop) await deps.depop.markSold(token, item.sku);
         await saveListing(deps, p.organizationId, item.sku, { productId: p.id, status: "REMOVED", errorCode: "out_of_stock", errorMessage: null });
+        if (wasOnDepop) await logChannel(deps, { organizationId: p.organizationId, productId: p.id, skuCode: item.sku, ok: true, message: "marked_sold" });
         continue;
       }
       const body = buildDepopBody({
@@ -207,10 +214,18 @@ async function publishToDepop(deps: ChannelDeps, productId: string) {
         errorMessage: null,
         publishedAt: existing?.publishedAt ?? now,
       });
+      await logChannel(deps, {
+        organizationId: p.organizationId,
+        productId: p.id,
+        skuCode: item.sku,
+        ok: true,
+        message: existing?.externalId ? `updated:${item.quantity}` : `listed:${item.quantity}`,
+      });
     } catch (err) {
       await handleUnauthorized(deps, connection, err);
       const e = err instanceof DepopApiError ? err : new DepopApiError(0, "internal_error", (err as Error).message, true);
       await saveListing(deps, p.organizationId, item.sku, { productId: p.id, status: "ERROR", errorCode: e.code, errorMessage: e.message });
+      await logChannel(deps, { organizationId: p.organizationId, productId: p.id, skuCode: item.sku, ok: false, message: `${e.code}: ${e.message}` });
       if (e.retryable) retry = e;
     }
   }
@@ -232,10 +247,12 @@ async function removeSkus(
     try {
       await deps.depop.deleteProduct(token, sku);
       await saveListing(deps, organizationId, sku, { productId, status: "REMOVED", errorCode: null, errorMessage: null });
+      await logChannel(deps, { organizationId, productId, skuCode: sku, ok: true, message: "removed" });
     } catch (err) {
       await handleUnauthorized(deps, connection, err);
       const e = err instanceof DepopApiError ? err : new DepopApiError(0, "internal_error", (err as Error).message, true);
       await saveListing(deps, organizationId, sku, { productId, status: "ERROR", errorCode: e.code, errorMessage: e.message });
+      await logChannel(deps, { organizationId, productId, skuCode: sku, ok: false, message: `${e.code}: ${e.message}` });
       if (e.retryable) retry = e;
     }
   }
@@ -243,7 +260,7 @@ async function removeSkus(
 }
 
 /** Fiche supprimée dans OmniList : on retire ses annonces Depop. */
-async function removeFromDepop(deps: ChannelDeps, organizationId: string, skus: string[]) {
+export async function removeFromDepop(deps: ChannelDeps, organizationId: string, skus: string[]) {
   if (skus.length === 0) return;
   const connection = await deps.prisma.channelConnection.findUnique({
     where: { organizationId_channel: { organizationId, channel: "DEPOP" } },

@@ -436,3 +436,54 @@ fieldset:disabled { opacity: 0.5; }
 .listing-status--error { background: var(--error-bg) !important; }
 .listing-status--error svg { color: var(--error); }
 .listing-status--removed svg { color: var(--text-muted); }
+
+/* ---------- Stock, journal et commandes (US8-US9) ---------- */
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; overflow-wrap: anywhere; }
+.badge--danger { background: var(--error-bg); color: var(--error); }
+.warn-text { color: #b54708; }
+.field--inline { display: flex; align-items: center; gap: 0.5rem; flex-direction: row; }
+.field--inline .input { width: auto; min-width: 160px; }
+.seg-filter { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--white); }
+.seg-filter-item { border: 0; background: transparent; padding: 0.5rem 0.85rem; font: inherit; font-size: 0.9rem; color: var(--text-muted); cursor: pointer; }
+.seg-filter-item + .seg-filter-item { border-left: 1px solid var(--border); }
+.seg-filter-item[aria-pressed="true"] { background: var(--blue-50); color: var(--blue-600); font-weight: 600; }
+.stock-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.stock-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; align-items: center; padding: 0.75rem; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); }
+@media (min-width: 860px) {
+  .stock-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; }
+}
+.stock-item { display: flex; align-items: center; gap: 0.75rem; min-width: 0; color: inherit; text-decoration: none; }
+.stock-item .product-thumb { width: 48px; height: 48px; flex: none; }
+.stock-item .product-main { min-width: 0; display: grid; }
+.stock-item .product-main small { color: var(--text-muted); }
+.stock-channels { display: flex; gap: 0.3rem; flex-wrap: wrap; color: var(--text-muted); }
+.stock-qty { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+.stock-input { width: 72px; text-align: center; }
+.sync-log { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.4rem; }
+.sync-log-item { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 0.35rem 0.75rem; align-items: center; padding: 0.6rem 0.8rem; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.9rem; }
+.sync-log-item time { grid-column: 1 / -1; color: var(--text-muted); font-size: 0.8rem; }
+@media (min-width: 860px) {
+  .sync-log-item { grid-template-columns: 150px 140px 110px minmax(0, 1fr); }
+  .sync-log-item time { grid-column: auto; }
+}
+.sync-log-channel { color: var(--text-muted); }
+.sync-log-body { display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.sync-log-body small { color: var(--text-muted); }
+.sync-log-body .neg { color: var(--error); }
+.sync-log-body .pos { color: var(--success); }
+.sync-log-item--sale .sync-log-type { background: var(--blue-50); color: var(--blue-600); }
+.sync-log-item--restock .sync-log-type, .sync-log-item--channel_update .sync-log-type { background: var(--success-bg); color: var(--success); }
+.sync-log-item--oversold .sync-log-type, .sync-log-item--channel_error .sync-log-type { background: var(--error-bg); color: var(--error); }
+.sync-log-item--oversold, .sync-log-item--channel_error { border-color: #f4c7b5; }
+.orders-col { display: grid; gap: 0.75rem; align-content: start; min-width: 0; }
+.order-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.order-card { display: grid; gap: 0.5rem; padding: 1rem 1.25rem; }
+.order-head { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.order-total { margin-left: auto; font-weight: 700; }
+.order-meta { font-size: 0.85rem; overflow-wrap: anywhere; }
+.order-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; font-size: 0.9rem; }
+.order-lines li { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.order-status--cancelled, .order-status--refunded { background: var(--surface); color: var(--text-muted); text-decoration: line-through; }
+.order-status--paid { background: var(--blue-50); color: var(--blue-600); }
+.order-status--shipped, .order-status--completed { background: var(--success-bg); color: var(--success); }
+.order-card .btn--danger-ghost { justify-self: start; }

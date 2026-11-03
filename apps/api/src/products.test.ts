@@ -253,7 +253,7 @@ describe("modification et suppression", () => {
     expect(await prisma.productPhoto.findUnique({ where: { id: a! } })).toBeNull();
   });
 
-  it("met à jour les variantes en gardant leur identifiant", async () => {
+  it("met à jour les variantes en gardant leur identifiant (et leur stock)", async () => {
     const created = (await create(owner, withVariants(await uploadMany(owner, 1)))).json();
     const [m] = created.variants;
     const res = await app.inject({
@@ -272,7 +272,9 @@ describe("modification et suppression", () => {
     });
     expect(res.statusCode).toBe(200);
     const p = res.json();
-    expect(p.variants[0]).toMatchObject({ id: m.id, priceCents: 2100, quantity: 4 });
+    // Stock central : la fiche ne modifie pas le stock d'une variante existante (5), seulement celui d'une nouvelle.
+    expect(p.variants[0]).toMatchObject({ id: m.id, priceCents: 2100, quantity: 5 });
+    expect(p.variants[1]).toMatchObject({ sku: "TS-XL-NOIR", quantity: 2 });
     expect(p.variants.map((v: { sku: string }) => v.sku)).toEqual(["TS-M-NOIR", "TS-XL-NOIR"]);
     // L'ancien SKU TS-L-NOIR est libéré.
     expect((await create(owner, single(await uploadMany(owner, 1), { sku: "TS-L-NOIR" }))).statusCode).toBe(201);

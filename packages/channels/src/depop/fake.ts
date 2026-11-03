@@ -1,5 +1,5 @@
 import { pkceChallenge, randomToken } from "../crypto.js";
-import type { DepopProductBody } from "./client.js";
+import type { DepopOrder, DepopOrderStatus, DepopProductBody } from "./client.js";
 
 /**
  * Faux Depop en mémoire : reproduit les réponses de la Selling API pour les tests,
@@ -14,6 +14,7 @@ export interface FakeRequest {
   headers: Record<string, string | undefined>;
   /** Corps brut (formulaire ou JSON). */
   body?: string;
+  query?: URLSearchParams;
 }
 
 export interface FakeResponse {
@@ -43,6 +44,9 @@ const oauthError = (status: number, err: string, description: string): FakeRespo
 
 export class FakeDepop {
   readonly products = new Map<string, FakeProduct>();
+  /** Commandes reçues sur le faux Depop, la plus récente en premier. */
+  readonly orders: DepopOrder[] = [];
+  readonly webhooks: Array<{ id: string; url: string; secret: string; eventTypes: string[] }> = [];
   /** Erreur forcée sur le prochain PUT (tests). */
   failNextPut: FakeResponse | null = null;
   private readonly codes = new Map<string, { challenge: string; redirectUri: string; expiresAt: number }>();
@@ -68,6 +72,41 @@ export class FakeDepop {
     return back.toString();
   }
 
+  /**
+   * Vente sur Depop (tests et démonstration) : décompte la quantité de l'annonce, la marque vendue
+   * à 0 et crée la commande, comme le ferait un acheteur.
+   */
+  simulateSale(sku: string, opts: { quantity?: number; status?: DepopOrderStatus; purchaseId?: string } = {}): DepopOrder {
+    const product = this.products.get(sku);
+    if (!product) throw new Error(`Annonce inconnue sur le faux Depop : ${sku}`);
+    const quantity = opts.quantity ?? 1;
+    product.body = { ...product.body, quantity: Math.max(0, product.body.quantity - quantity) };
+    if (product.body.quantity === 0) product.status = "sold";
+    const order: DepopOrder = {
+      purchase_id: opts.purchaseId ?? String(this.nextId++),
+      status: opts.status ?? "SHIPPING_PENDING",
+      currency: product.body.price_currency,
+      buyer_pays_amount: (Number(product.body.price_amount) * quantity).toFixed(2),
+      buyer_address: { name: "Jordan Buyer" },
+      line_items: Array.from({ length: quantity }, () => ({
+        sku,
+        product_id: product.productId,
+        description: product.body.description,
+        sold_price: product.body.price_amount,
+      })),
+      created_at: new Date(this.now()).toISOString(),
+    };
+    this.orders.unshift(order);
+    return order;
+  }
+
+  /** Change le statut d'une commande (annulation, remboursement…). */
+  setOrderStatus(purchaseId: string, status: DepopOrderStatus) {
+    const order = this.orders.find((o) => o.purchase_id === purchaseId);
+    if (order) order.status = status;
+    return order;
+  }
+
   /** Expire tous les jetons d'accès (tests du rafraîchissement). */
   expireAccessTokens() {
     for (const token of this.accessTokens.keys()) this.accessTokens.set(token, 0);
@@ -85,7 +124,7 @@ export class FakeDepop {
     const headers: Record<string, string> = {};
     new Headers(init?.headers).forEach((v, k) => (headers[k] = v));
     const path = url.pathname.replace(/^.*?(\/api\/v1\/)/, "$1");
-    const res = this.handle({ method: init?.method ?? "GET", path, headers, body: init?.body as string | undefined });
+    const res = this.handle({ method: init?.method ?? "GET", path, headers, body: init?.body as string | undefined, query: url.searchParams });
     return new Response(res.body === undefined ? null : JSON.stringify(res.body), {
       status: res.status,
       headers: { "content-type": "application/json" },
@@ -104,6 +143,9 @@ export class FakeDepop {
       return { status: 200, body: { id: 97082934, username: FAKE_DEPOP_USERNAME, country_code: "US" } };
     }
 
+    if (req.method === "GET" && req.path === "/api/v1/orders/") return this.listOrders(req.query ?? new URLSearchParams());
+    if (req.method === "POST" && req.path === "/api/v1/webhooks/") return this.createWebhook(req.body ?? "");
+
     const m = req.path.match(/^\/api\/v1\/products\/by-sku\/([^/]+)\/(mark-as-sold\/)?$/);
     if (!m) return error(404, "not_found", `No route for ${req.method} ${req.path}`);
     const sku = decodeURIComponent(m[1]!);
@@ -121,6 +163,25 @@ export class FakeDepop {
     }
     if (req.method === "PUT") return this.put(sku, req.body ?? "");
     return error(405, "method_not_allowed", `Method ${req.method} not allowed`);
+  }
+
+  private listOrders(query: URLSearchParams): FakeResponse {
+    const from = query.get("from") ? Date.parse(query.get("from")!) : 0;
+    const limit = Math.min(Number(query.get("limit") ?? 20), 200);
+    const cursor = query.get("cursor");
+    let list = this.orders.filter((o) => Date.parse(o.created_at) >= from);
+    if (cursor) list = list.slice(list.findIndex((o) => o.purchase_id === cursor) + 1);
+    const page = list.slice(0, limit);
+    return { status: 200, body: { meta: { cursor: page.at(-1)?.purchase_id ?? null, has_more: list.length > limit }, data: page } };
+  }
+
+  private createWebhook(raw: string): FakeResponse {
+    const body = JSON.parse(raw || "{}") as { url?: string; event_types?: string[] };
+    if (!body.url?.startsWith("https://")) return error(400, "invalid_url", "The URL must be a public HTTPS endpoint");
+    if (this.webhooks.some((w) => w.url === body.url)) return error(409, "webhook_exists", "This URL is already registered");
+    const hook = { id: randomToken(8), url: body.url, secret: randomToken(24), eventTypes: body.event_types ?? [] };
+    this.webhooks.push(hook);
+    return { status: 200, body: { id: hook.id, url: hook.url, enabled: true, event_types: hook.eventTypes, secret: hook.secret } };
   }
 
   private token(raw: string): FakeResponse {

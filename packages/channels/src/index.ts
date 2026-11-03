@@ -3,4 +3,7 @@ export * from "./config.js";
 export * from "./depop/client.js";
 export * from "./depop/fake.js";
 export * from "./depop/mapping.js";
+export * from "./depop/orders.js";
+export * from "./inventory.js";
+export * from "./jobs.js";
 export * from "./publish.js";

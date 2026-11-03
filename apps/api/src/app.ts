@@ -14,8 +14,11 @@ import { channelRoutes } from "./routes/channels.js";
 import { fakeDepopRoutes } from "./routes/fake-depop.js";
 import { healthRoutes } from "./routes/health.js";
 import { invitationRoutes } from "./routes/invitations.js";
+import { orderRoutes } from "./routes/orders.js";
 import { photoRoutes, publicPhotoRoutes } from "./routes/photos.js";
 import { productRoutes } from "./routes/products.js";
+import { stockRoutes } from "./routes/stock.js";
+import { webhookRoutes } from "./routes/webhooks.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -71,6 +74,7 @@ export function buildApp(env: Env, deps: AppDeps) {
   app.register(healthRoutes);
   // Sans session : les canaux téléchargent les photos par lien signé.
   app.register(publicPhotoRoutes, { prefix: "/public/photos" });
+  app.register(webhookRoutes, { prefix: "/webhooks" });
   if (deps.channels.fakeDepop) app.register(fakeDepopRoutes, { prefix: "/dev/fake-depop" });
 
   // Routes qui ont besoin de la session.
@@ -81,6 +85,8 @@ export function buildApp(env: Env, deps: AppDeps) {
     scope.register(photoRoutes, { prefix: "/photos" });
     scope.register(productRoutes, { prefix: "/products" });
     scope.register(channelRoutes, { prefix: "/channels" });
+    scope.register(stockRoutes, { prefix: "/stock" });
+    scope.register(orderRoutes, { prefix: "/orders" });
   });
 
   return app;

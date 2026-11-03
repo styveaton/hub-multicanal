@@ -1,12 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { CHANNELS, CHANNEL_INTEGRATION, CHANNEL_LABEL, can, isUsState, type Channel } from "@hub/shared";
-import { DEPOP_SCOPES, pkceChallenge, randomToken, sha256Hex } from "@hub/channels";
+import { DEPOP_SCOPES, PUBLISHABLE_CHANNELS, pkceChallenge, randomToken, sha256Hex } from "@hub/channels";
 import { HttpError } from "../lib/errors.js";
 import { requireAuth, requirePermission } from "../plugins/auth.js";
 
 /** Canaux déjà branchés de bout en bout. Les autres suivront (eBay au Sprint 3). */
-export const SUPPORTED_CHANNELS: ReadonlySet<Channel> = new Set(["DEPOP"]);
+export const SUPPORTED_CHANNELS: ReadonlySet<Channel> = new Set(PUBLISHABLE_CHANNELS);
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -130,11 +130,25 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
           scopes: DEPOP_SCOPES.join(" "),
           connectedById: request.auth.userId,
         };
-        await app.prisma.channelConnection.upsert({
+        const connection = await app.prisma.channelConnection.upsert({
           where: { organizationId_channel: { organizationId: request.auth.organizationId, channel: channel.data } },
           create: { organizationId: request.auth.organizationId, channel: channel.data, ...data },
           update: data,
         });
+        // Webhook des commandes (US9) : ventes reçues en quelques secondes. Sans lui, le relevé de
+        // secours prend le relais, donc un échec ici ne bloque pas la connexion.
+        if (app.channels.config.webhooksEnabled && !connection.webhookId) {
+          try {
+            const url = `${app.channels.config.publicApiUrl.replace(/\/$/, "")}/webhooks/depop/${connection.id}`;
+            const hook = await app.channels.depop.createWebhook(tokens.access_token, url, ["v1:order.*"]);
+            await app.prisma.channelConnection.update({
+              where: { id: connection.id },
+              data: { webhookId: hook.id, webhookSecretEnc: hook.secret ? cipher.encrypt(hook.secret) : null },
+            });
+          } catch (err) {
+            request.log.warn(err, "webhook Depop non enregistré : le relevé de secours prend le relais");
+          }
+        }
       } catch (err) {
         request.log.warn(err, "connexion Depop échouée");
         return back({ error: "connect_failed", channel: key });

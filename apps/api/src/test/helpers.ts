@@ -10,13 +10,22 @@ import { SESSION_COOKIE } from "../plugins/auth.js";
 export { prisma };
 
 export const TEST_WEB_URL = "http://web.test";
+export const TEST_PUBLIC_API_URL = "https://api.test";
 
 export function createTestApp() {
   const mailer = new MemoryMailer();
   const storage = new MemoryStorage();
   const queue = new MemoryJobQueue();
   const fakeDepop = new FakeDepop();
-  const config = loadChannelConfig({ APP_ENV: "local", NODE_ENV: "test", WEB_URL: TEST_WEB_URL, DEPOP_ENV: "fake" });
+  const config = loadChannelConfig({
+    APP_ENV: "local",
+    NODE_ENV: "test",
+    WEB_URL: TEST_WEB_URL,
+    PUBLIC_API_URL: TEST_PUBLIC_API_URL,
+    DEPOP_ENV: "fake",
+  });
+  // Les tests vérifient aussi l'enregistrement et la réception des webhooks.
+  config.webhooksEnabled = true;
   const depop = createDepopClient(config.depop, fakeDepop.fetch);
   const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: TEST_WEB_URL }), {
     prisma,
@@ -31,7 +40,7 @@ export function createTestApp() {
 
 export async function resetDatabase() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE "ChannelListing", "ChannelConnection", "OAuthState", "ProductChannel", "Sku", "ProductVariant", "ProductPhoto", "Product",
+    `TRUNCATE TABLE "SyncLog", "OrderLine", "Order", "ChannelListing", "ChannelConnection", "OAuthState", "ProductChannel", "Sku", "ProductVariant", "ProductPhoto", "Product",
       "Session", "Invitation", "Membership", "Organization", "User" CASCADE`,
   );
 }

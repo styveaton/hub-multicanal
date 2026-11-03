@@ -50,6 +50,8 @@ model Organization {
   connections      ChannelConnection[]
   oauthStates      OAuthState[]
   listings         ChannelListing[]
+  orders           Order[]
+  syncLogs         SyncLog[]
 }
 
 // Session de connexion : le cookie porte un jeton aléatoire, seul son hash est stocké.
@@ -163,7 +165,7 @@ model ProductVariant {
   // Ex. {"Taille": "M", "Couleur": "Rouge"}
   attributes Json
   priceCents Int
-  quantity   Int
+  // Le stock est porté par le SKU (Sku.quantity), source unique pour tous les canaux.
   position   Int
   product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   sku        Sku?
@@ -179,6 +181,8 @@ model Sku {
   code           String
   productId      String
   variantId      String?         @unique
+  // Stock central : modifié uniquement sous verrou (vente, annulation, ajustement).
+  quantity       Int             @default(0)
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   variant        ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
@@ -245,6 +249,11 @@ model ChannelConnection {
   scopes               String           @default("")
   // Réglages propres au canal (ex. Depop : État d'expédition).
   settings             Json             @default("{}")
+  // Webhook de commandes enregistré chez le canal (secret chiffré, renvoyé une seule fois).
+  webhookId            String?
+  webhookSecretEnc     String?
+  // Relevé de secours : commandes importées jusqu'à cette date.
+  ordersSyncedAt       DateTime?
   connectedById        String?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
@@ -293,4 +302,90 @@ model ChannelListing {
 
   @@unique([organizationId, channel, skuCode])
   @@index([productId])
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 4 (US8-US9) : commandes, stock central et journal de synchronisation
+// ---------------------------------------------------------------------------
+
+enum OrderSource {
+  CHANNEL // importée d'un canal (webhook ou relevé de secours)
+  MANUAL // saisie dans OmniList (vente en direct, canal pas encore branché)
+}
+
+enum OrderStatus {
+  PAID
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+// Commande d'un canal ou vente saisie. Idempotence : un seul enregistrement par commande du canal.
+model Order {
+  id              String       @id @default(cuid())
+  organizationId  String
+  channel         Channel?
+  source          OrderSource
+  externalOrderId String
+  status          OrderStatus  @default(PAID)
+  buyerName       String?
+  currency        String       @default("USD")
+  totalCents      Int
+  placedAt        DateTime
+  // Stock déjà remis en place après annulation ou remboursement.
+  restockedAt     DateTime?
+  createdById     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lines           OrderLine[]
+
+  @@unique([organizationId, channel, externalOrderId])
+  @@index([organizationId, placedAt])
+}
+
+model OrderLine {
+  id             String  @id @default(cuid())
+  orderId        String
+  skuCode        String
+  productId      String?
+  title          String
+  quantity       Int
+  unitPriceCents Int
+  // Partie de la quantité vendue alors que le stock était déjà à 0 (double vente).
+  oversoldQty    Int     @default(0)
+  // SKU inconnu dans OmniList : rien à décompter.
+  matched        Boolean @default(true)
+  order          Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+enum SyncLogType {
+  SALE // stock diminué par une vente
+  RESTOCK // stock remis après annulation ou remboursement
+  ADJUSTMENT // stock corrigé à la main
+  OVERSOLD // vente alors que le stock était à 0
+  UNKNOWN_SKU // vente d'un SKU inconnu
+  CHANNEL_UPDATE // annonce mise à jour ou retirée sur un canal
+  CHANNEL_ERROR // échec d'envoi vers un canal
+}
+
+// Journal de synchronisation consultable (US8).
+model SyncLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  type           SyncLogType
+  channel        Channel?
+  skuCode        String?
+  productId      String?
+  orderId        String?
+  delta          Int?
+  quantityAfter  Int?
+  message        String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
 }

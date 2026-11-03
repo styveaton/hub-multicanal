@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, CreditCard, Layers, LogOut, Share2, Tag, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, CreditCard, Layers, LogOut, Receipt, Share2, Tag, Users, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useI18n } from "../i18n/I18nProvider";
 import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 import type { Me } from "../lib/api";
 import { Logo } from "./Logo";
 
-type NavKey = "products" | "stock" | "channels" | "analytics" | "team" | "billing";
+type NavKey = "products" | "stock" | "orders" | "channels" | "analytics" | "team" | "billing";
 
 interface NavItem {
   key: NavKey;
@@ -20,7 +20,8 @@ interface NavItem {
 // Ordre repris de la charte (Listings, Inventory, Channels, Analytics).
 const NAV: NavItem[] = [
   { key: "products", icon: Tag, href: "/products" },
-  { key: "stock", icon: Layers },
+  { key: "stock", icon: Layers, href: "/stock", permission: "stock:manage" },
+  { key: "orders", icon: Receipt, href: "/orders", permission: "orders:view" },
   { key: "channels", icon: Share2, href: "/channels", permission: "channels:manage" },
   { key: "analytics", icon: BarChart3 },
   { key: "team", icon: Users, href: "/team" },

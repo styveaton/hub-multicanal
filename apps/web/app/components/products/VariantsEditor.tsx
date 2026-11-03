@@ -139,6 +139,9 @@ export function VariantsEditor({
                     value={row.quantity}
                     aria-label={v.cell(v.quantity, r + 1)}
                     onChange={(e) => update(row.key, { quantity: e.target.value })}
+                    // Variante existante : son stock suit les ventes, il se corrige sur la page Stock.
+                    disabled={!!row.id}
+                    title={row.id ? v.stockLocked : undefined}
                     required
                   />
                 </td>
@@ -158,6 +161,7 @@ export function VariantsEditor({
           </tbody>
         </table>
       </div>
+      {rows.some((row) => row.id) && <p className="field-hint">{v.stockHint}</p>}
       <button type="button" className="btn btn--secondary btn--sm" onClick={() => onRowsChange([...rows, newVariantRow(options.length)])}>
         <Plus size={16} aria-hidden /> {v.add}
       </button>

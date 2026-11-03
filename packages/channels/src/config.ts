@@ -18,6 +18,8 @@ const ChannelEnvSchema = z.object({
   DEPOP_ENV: z.enum(["fake", "staging", "production"]).default("fake"),
   DEPOP_CLIENT_ID: z.string().optional(),
   DEPOP_CLIENT_SECRET: z.string().optional(),
+  // Relevé de secours des commandes (les webhooks peuvent se perdre).
+  ORDER_POLL_SECONDS: z.coerce.number().int().min(15).optional(),
 });
 
 export type ChannelEnv = z.infer<typeof ChannelEnvSchema>;
@@ -41,6 +43,12 @@ export interface DepopConfig {
 
 export interface ChannelConfig {
   env: ChannelEnv;
+  /** Adresse publique de l'API (photos signées, webhooks des canaux). */
+  publicApiUrl: string;
+  /** Webhooks possibles : adresse publique en HTTPS (pas en local). */
+  webhooksEnabled: boolean;
+  /** Intervalle du relevé de secours des commandes, en secondes. */
+  orderPollSeconds: number;
   cipher: TokenCipher;
   media: MediaSigner;
   depop: DepopConfig;
@@ -77,7 +85,16 @@ export function loadChannelConfig(source: NodeJS.ProcessEnv = process.env): Chan
     clientSecret: fake ? FAKE_DEPOP_CLIENT_SECRET : (env.DEPOP_CLIENT_SECRET ?? ""),
   };
 
-  return { env, cipher, media, depop };
+  return {
+    env,
+    publicApiUrl: publicApi,
+    webhooksEnabled: publicApi.startsWith("https://") && !fake,
+    // Faux Depop en local : relevé rapproché pour voir les ventes arriver vite.
+    orderPollSeconds: env.ORDER_POLL_SECONDS ?? (fake ? 30 : 120),
+    cipher,
+    media,
+    depop,
+  };
 }
 
 export const createDepopClient = (config: DepopConfig, fetchImpl?: typeof fetch) =>

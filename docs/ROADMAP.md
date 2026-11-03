@@ -9,7 +9,7 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 | 2 – Fiche produit maître (US4-US5) | CRUD produits et variantes, médias, adaptation par canal | **Fait** (QA manuelle à compléter) |
 | 2 bis – Depop | Connexion OAuth (PKCE), jetons chiffrés, publication et mise à jour via BullMQ, page Canaux | **Fait** contre un faux Depop ; attend les clés partenaire |
 | 3 – eBay (US3, US6-US7) | OAuth eBay et publication, en réutilisant l'architecture Depop (`packages/channels`) | À venir |
-| 4 – Ventes et stock (US8-US9) | Stock central, anti double vente, import des commandes | À venir |
+| 4 – Ventes et stock (US8-US9) | Stock central, anti double vente, import des commandes | **Fait** (Depop ; les autres canaux suivront à leur branchement) |
 | 5 – TikTok Shop + Amazon | Connecteurs, mapping, quotas | À venir |
 | 6 – Facturation et lancement (US2, US10) | Stripe et paliers, dashboard, bêta fermée | À venir |
 
@@ -51,3 +51,22 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 - [ ] **DEV** : nettoyer les photos envoyées mais jamais rattachées à un produit (tâche planifiée)
 - [ ] **DEV** : ajuster les taux de frais indicatifs avec les vrais contrats
 - [ ] **QA** : tests manuels formulaires et envois sur plusieurs navigateurs
+
+## Sprint 4 : ce qui est fait
+
+- Stock central par SKU (`Sku.quantity`), seule source de vérité ; jamais négatif (contrainte en base)
+- Moteur de ventes (`packages/channels/src/inventory.ts`) : verrou de ligne `SELECT … FOR UPDATE`, SKU verrouillés dans un ordre fixe (pas d'interblocage), commande enregistrée une seule fois (index unique boutique + canal + numéro de commande)
+- Doubles ventes tracées (quantité vendue alors que le stock était à 0) au lieu d'être perdues
+- Propagation immédiate et prioritaire vers les canaux après chaque vente, annulation ou correction : mise à jour de la quantité, annonce marquée vendue à 0, remise en vente au réassort
+- Commandes Depop : webhook signé (HMAC-SHA256, rejeu refusé après 5 minutes) enregistré à la connexion, relevé de secours toutes les 2 minutes (30 s avec le faux Depop), annulation ou remboursement → stock remis
+- Ventes saisies dans OmniList (en direct ou sur un canal pas encore branché, ex. Mercari), refusées si le stock ne suffit pas
+- La fiche produit ne modifie plus le stock d'une variante existante : plus d'écrasement par une page restée ouverte
+- Écrans : Stock (filtres rupture et stock faible, − / +, nouvelle valeur), Journal de synchronisation, Commandes (filtres canal et statut, saisie et annulation d'une vente)
+- 13 nouveaux tests, dont 20 ventes simultanées sur un stock de 5 et 10 commandes de canal simultanées sur un stock de 3
+
+## Sprint 4 : ce qui reste
+
+- [ ] **DEV** : brancher eBay, Etsy, Shopify… sur le même moteur (import de leurs commandes, mise à jour du stock)
+- [ ] **DEV** : expédition des commandes Depop depuis OmniList (`mark-as-shipped`)
+- [ ] **QA** : mesurer le taux de doubles ventes en bêta (objectif < 1 %) à partir du journal (`OVERSOLD`)
+- [ ] **DESIGN** : maquettes définitives des écrans Stock, Journal et Commandes

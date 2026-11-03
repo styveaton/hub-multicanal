@@ -3,6 +3,8 @@
  * `fetch` est injectable : le faux Depop des tests et du mode local s'y branche.
  */
 
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 export const DEPOP_SCOPES = ["products_read", "products_write", "shop_read", "orders_read"] as const;
 
 export interface DepopTokens {
@@ -44,6 +46,29 @@ export interface DepopProductResult {
   product_id: number;
   slug: string;
   sku?: string;
+}
+
+export type DepopOrderStatus = "SHIPPING_PENDING" | "SHIPPED" | "REFUNDED" | "CANCELLED" | "COMPLETED";
+
+/** Commande Depop (champs utilisés par OmniList). Une ligne par unité vendue. */
+export interface DepopOrder {
+  purchase_id: string;
+  status: DepopOrderStatus;
+  currency: string;
+  buyer_pays_amount?: string;
+  buyer_address?: { name?: string } | null;
+  line_items: Array<{ sku?: string | null; product_id: number; description: string; sold_price: string }>;
+  created_at: string;
+}
+
+export interface DepopOrdersPage {
+  meta: { cursor?: string | null; has_more: boolean };
+  data: DepopOrder[];
+}
+
+export interface DepopWebhookConfig {
+  id: string;
+  secret?: string;
 }
 
 /** Erreur renvoyée par Depop. `retryable` : relancer plus tard peut réussir (429, 5xx, réseau). */
@@ -105,6 +130,19 @@ export class DepopClient {
     await this.call("POST", `/api/v1/products/by-sku/${encodeURIComponent(sku)}/mark-as-sold/`, accessToken);
   }
 
+  /** Commandes reçues, de la plus récente à la plus ancienne (200 au plus par page). */
+  listOrders(accessToken: string, params: { from?: Date; cursor?: string; limit?: number } = {}): Promise<DepopOrdersPage> {
+    const q = new URLSearchParams({ limit: String(params.limit ?? 200) });
+    if (params.from) q.set("from", params.from.toISOString());
+    if (params.cursor) q.set("cursor", params.cursor);
+    return this.call("GET", `/api/v1/orders/?${q}`, accessToken);
+  }
+
+  /** Abonnement aux événements du vendeur ; le secret n'est renvoyé qu'à la création. */
+  createWebhook(accessToken: string, url: string, eventTypes: string[]): Promise<DepopWebhookConfig> {
+    return this.call("POST", "/api/v1/webhooks/", accessToken, { url, event_types: eventTypes, enabled: true });
+  }
+
   private async token(params: Record<string, string>): Promise<DepopTokens> {
     const body = new URLSearchParams({ ...params, client_id: this.opts.clientId, client_secret: this.opts.clientSecret });
     const res = await this.send(`${this.baseUrl}/api/v1/oauth2/access-token/`, {
@@ -160,3 +198,24 @@ export class DepopClient {
     throw new DepopApiError(res.status, code, message, retryable);
   }
 }
+
+/**
+ * Vérifie un webhook Depop : X-Depop-Signature = HMAC-SHA256 hexadécimal de « <timestamp>.<corps brut> »,
+ * clé = secret du webhook. Les messages de plus de 5 minutes sont refusés (rejeu).
+ */
+export function verifyDepopWebhook(
+  secret: string,
+  rawBody: string,
+  timestamp: string | undefined,
+  signature: string | undefined,
+  now = Date.now(),
+): boolean {
+  const ts = Number(timestamp);
+  if (!signature || !Number.isFinite(ts) || Math.abs(now / 1000 - ts) > 300) return false;
+  const expected = Buffer.from(signDepopWebhook(secret, rawBody, String(timestamp)));
+  const given = Buffer.from(signature);
+  return expected.length === given.length && timingSafeEqual(expected, given);
+}
+
+export const signDepopWebhook = (secret: string, rawBody: string, timestamp: string) =>
+  createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
