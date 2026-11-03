@@ -10,6 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "bullmq": "^5.34.0"
+    "bullmq": "^5.34.0",
+    "@hub/channels": "*",
+    "@hub/db": "*"
   }
 }

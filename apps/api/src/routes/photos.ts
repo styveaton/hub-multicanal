@@ -76,3 +76,22 @@ export const photoRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 };
+
+/**
+ * Photo par lien signé et temporaire, sans session : c'est ainsi que Depop (et plus tard
+ * les autres canaux) télécharge les images d'une annonce.
+ */
+export const publicPhotoRoutes: FastifyPluginAsync = async (app) => {
+  app.get<{ Params: { id: string }; Querystring: { exp?: string; sig?: string } }>("/:id", async (request, reply) => {
+    const { id } = request.params;
+    if (!app.channels.config.media.verify(id, request.query.exp, request.query.sig)) {
+      return reply.code(403).send({ error: "invalid_signature" });
+    }
+    const photo = await app.prisma.productPhoto.findUnique({ where: { id } });
+    const object = photo ? await app.storage.get(photo.storageKey) : null;
+    if (!photo || !object) return reply.code(404).send({ error: "not_found" });
+    reply.header("content-type", photo.contentType);
+    reply.header("cache-control", "public, max-age=86400");
+    return reply.send(object.body);
+  });
+};

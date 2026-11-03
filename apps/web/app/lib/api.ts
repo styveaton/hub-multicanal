@@ -1,4 +1,4 @@
-import type { Channel, PriceRule } from "@hub/shared";
+import type { Channel, ChannelIntegration, DepopDetails, DepopIssue, PriceRule } from "@hub/shared";
 import fr from "../i18n/fr";
 import type { Messages } from "../i18n";
 
@@ -42,7 +42,42 @@ export interface ChannelSettings {
   category: string | null;
   price: PriceRule;
   preview: Array<{ variantId: string | null; sku: string; basePriceCents: number; priceCents: number; feeCents: number; netCents: number }>;
-  warnings: Array<{ code: "title_too_long"; length: number; max: number } | { code: "category_missing" }>;
+  warnings: ChannelWarning[];
+  /** Champs propres au canal (Depop : rayon, type, taille, port). */
+  details: DepopDetails | null;
+  /** Publication réelle possible (Depop pour l'instant). */
+  publishable: boolean;
+  listings: Listing[];
+}
+
+export type ChannelWarning = { code: "title_too_long"; length: number; max: number } | { code: "category_missing" } | DepopIssue;
+
+export type ListingStatus = "PENDING" | "LISTED" | "ERROR" | "REMOVED";
+
+export interface Listing {
+  sku: string;
+  status: ListingStatus;
+  externalUrl: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  updatedAt: string;
+}
+
+/** Ligne de la page Canaux. */
+export interface ChannelOverview {
+  channel: Channel;
+  label: string;
+  integration: ChannelIntegration;
+  supported: boolean;
+  available: boolean;
+  testMode: boolean;
+  listedCount: number;
+  connection: {
+    status: "CONNECTED" | "NEEDS_REAUTH";
+    username: string | null;
+    connectedAt: string;
+    settings: { shipFromState?: string };
+  } | null;
 }
 
 export interface ProductDetail {

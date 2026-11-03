@@ -1,11 +1,12 @@
 "use client";
 
 import { AlertTriangle, Info } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { CHANNEL_INTEGRATION, FEE_NOTES, PERCENT_BPS_MAX, PERCENT_BPS_MIN, applyPriceRule, feePreview, formatMoney, type PriceRule } from "@hub/shared";
 import { Alert } from "../Alert";
 import { useI18n } from "../../i18n/I18nProvider";
-import { api, centsToInput, parseMoney, type ChannelSettings, type ProductDetail } from "../../lib/api";
+import { api, centsToInput, parseMoney, type ChannelSettings, type ChannelWarning, type ProductDetail } from "../../lib/api";
+import { DepopFields, DepopListingCard, depopDetailsFrom, depopFormFrom } from "./DepopFields";
 
 type PriceMode = PriceRule["mode"];
 
@@ -32,6 +33,10 @@ export function ChannelPanel({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
+  const isDepop = settings.channel === "DEPOP";
+  const [depopForm, setDepopForm] = useState(() => depopFormFrom(settings.details));
+  const [publishing, setPublishing] = useState(false);
+  const [notConnected, setNotConnected] = useState(false);
 
   const single = product.mode === "SINGLE";
   const effectiveTitle = title.trim() || product.title;
@@ -56,22 +61,71 @@ export function ChannelPanel({
     ? [{ key: "single", label: product.sku ?? "", base: product.priceCents ?? 0 }]
     : product.variants.map((v) => ({ key: v.id ?? v.sku, label: `${Object.values(v.attributes).join(" / ")} · ${v.sku}`, base: v.priceCents }));
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  /** Enregistre les réglages du canal ; renvoie les réglages à jour, ou null en cas d'erreur. */
+  async function save(enabledValue = enabled): Promise<ChannelSettings | null> {
+    const fail = (message: string) => {
+      setError(message);
+      return null;
+    };
     setError(null);
     setSaved(false);
-    if (typeof rule === "string") return setError(rule);
-    if (title.trim().length > settings.titleMax) return setError(c.titleTooLong(label, settings.titleMax));
-    setPending(true);
+    if (typeof rule === "string") return fail(rule);
+    // Depop n'a pas de titre : la limite de titre ne s'applique pas.
+    if (!isDepop && title.trim().length > settings.titleMax) return fail(c.titleTooLong(label, settings.titleMax));
+    const details = isDepop ? depopDetailsFrom(depopForm, c.depop.shippingInvalid) : undefined;
+    if (typeof details === "string") return fail(details);
     const res = await api<ChannelSettings>(`/products/${product.id}/channels/${settings.channel}`, {
       method: "PUT",
-      body: { enabled, title: title.trim() || null, category: category.trim() || null, price: rule },
+      body: { enabled: enabledValue, title: title.trim() || null, category: category.trim() || null, price: rule, details },
     });
+    if (!res.ok) return fail(res.message);
+    onSaved(res.data);
+    return res.data;
+  }
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    setPending(true);
+    const res = await save();
     setPending(false);
-    if (!res.ok) return setError(res.message);
-    setSaved(true);
+    if (res) setSaved(true);
+  }
+
+  // Publier = enregistrer (canal activé) puis demander l'envoi ; le worker fait le reste.
+  async function onPublish() {
+    setPublishing(true);
+    setNotConnected(false);
+    const savedSettings = await save(true);
+    if (!savedSettings) return setPublishing(false);
+    setEnabled(true);
+    const res = await api<ChannelSettings>(`/products/${product.id}/channels/${settings.channel}/publish`, { method: "POST" });
+    setPublishing(false);
+    if (!res.ok) {
+      if (res.code === "channel_not_connected" || res.code === "channel_needs_reauth") setNotConnected(true);
+      return setError(res.message);
+    }
     onSaved(res.data);
   }
+
+  // Envoi en cours : on relit l'état des annonces toutes les 2 secondes (1 minute au plus).
+  const polls = useRef(0);
+  const waiting = settings.listings.some((l) => l.status === "PENDING");
+  useEffect(() => {
+    if (!waiting || polls.current >= 30) return;
+    const timer = setTimeout(async () => {
+      polls.current += 1;
+      const res = await api<ProductDetail>(`/products/${product.id}`);
+      const next = res.ok ? res.data.channels.find((ch) => ch.channel === settings.channel) : undefined;
+      if (next) onSaved(next);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [waiting, settings, product.id, onSaved]);
+
+  const warningText = (w: ChannelWarning) => {
+    if (w.code === "title_too_long") return c.warnings.title_too_long(label, w.length, w.max);
+    if (w.code === "category_missing") return c.warnings.category_missing(label);
+    return c.warnings[w.code](w.sku);
+  };
 
   return (
     <form className="channel-panel" onSubmit={onSubmit}>
@@ -80,7 +134,11 @@ export function ChannelPanel({
           <div>
             <h2>{c.publishOn(label)}</h2>
             <p className="muted">
-              {CHANNEL_INTEGRATION[settings.channel] === "assisted" ? c.publishHintAssisted(label) : c.publishHint(label)}
+              {isDepop
+                ? c.depop.hint
+                : CHANNEL_INTEGRATION[settings.channel] === "assisted"
+                  ? c.publishHintAssisted(label)
+                  : c.publishHint(label)}
             </p>
           </div>
           <label className="switch">
@@ -91,6 +149,10 @@ export function ChannelPanel({
         </div>
 
         <fieldset className="form" disabled={!enabled}>
+          {isDepop ? (
+            <DepopFields product={product} form={depopForm} onChange={setDepopForm} />
+          ) : (
+            <>
           <label className="field">
             {c.titleFor(label)} <span className="field-optional">{t.common.optional}</span>
             <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={product.title} />
@@ -104,6 +166,8 @@ export function ChannelPanel({
             <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={c.categoryPlaceholder} />
             <span className="field-hint">{c.categoryHint}</span>
           </label>
+            </>
+          )}
 
           <div className="field" role="radiogroup" aria-label={c.priceLabel}>
             {c.priceOn(label)}
@@ -150,6 +214,16 @@ export function ChannelPanel({
         </fieldset>
       </section>
 
+      {isDepop && settings.publishable && (
+        <DepopListingCard
+          listings={settings.listings}
+          pending={publishing}
+          canPublish={!pending}
+          notConnected={notConnected}
+          onPublish={onPublish}
+        />
+      )}
+
       <section className="card">
         <div className="card-header">
           <div>
@@ -192,9 +266,9 @@ export function ChannelPanel({
       {enabled && settings.warnings.length > 0 && (
         <ul className="warnings">
           {settings.warnings.map((w) => (
-            <li key={w.code}>
+            <li key={`${w.code}-${"sku" in w ? (w.sku ?? "") : ""}`}>
               <AlertTriangle size={16} aria-hidden />{" "}
-              {w.code === "title_too_long" ? c.warnings.title_too_long(label, w.length, w.max) : c.warnings.category_missing(label)}
+              {warningText(w)}
             </li>
           ))}
         </ul>

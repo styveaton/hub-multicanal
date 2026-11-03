@@ -1,22 +1,37 @@
 import { prisma } from "@hub/db";
+import { FakeDepop, createDepopClient, loadChannelConfig, type ChannelDeps } from "@hub/channels";
 import { buildApp } from "../app.js";
 import { loadEnv } from "../env.js";
 import { MemoryMailer } from "../lib/mailer.js";
+import { MemoryJobQueue } from "../lib/queue.js";
 import { MemoryStorage } from "../lib/storage.js";
 import { SESSION_COOKIE } from "../plugins/auth.js";
 
 export { prisma };
 
+export const TEST_WEB_URL = "http://web.test";
+
 export function createTestApp() {
   const mailer = new MemoryMailer();
   const storage = new MemoryStorage();
-  const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: "http://web.test" }), { prisma, mailer, storage });
-  return { app, mailer, storage };
+  const queue = new MemoryJobQueue();
+  const fakeDepop = new FakeDepop();
+  const config = loadChannelConfig({ APP_ENV: "local", NODE_ENV: "test", WEB_URL: TEST_WEB_URL, DEPOP_ENV: "fake" });
+  const depop = createDepopClient(config.depop, fakeDepop.fetch);
+  const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: TEST_WEB_URL }), {
+    prisma,
+    mailer,
+    storage,
+    channels: { config, depop, queue, fakeDepop },
+  });
+  // Ce que reçoit le worker : les tests exécutent les jobs avec queue.drain(channelDeps).
+  const channelDeps: ChannelDeps = { prisma, cipher: config.cipher, media: config.media, depop };
+  return { app, mailer, storage, queue, fakeDepop, config, channelDeps };
 }
 
 export async function resetDatabase() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE "ProductChannel", "Sku", "ProductVariant", "ProductPhoto", "Product",
+    `TRUNCATE TABLE "ChannelListing", "ChannelConnection", "OAuthState", "ProductChannel", "Sku", "ProductVariant", "ProductPhoto", "Product",
       "Session", "Invitation", "Membership", "Organization", "User" CASCADE`,
   );
 }

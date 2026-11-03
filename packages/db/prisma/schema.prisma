@@ -47,6 +47,9 @@ model Organization {
   products         Product[]
   photos           ProductPhoto[]
   skus             Sku[]
+  connections      ChannelConnection[]
+  oauthStates      OAuthState[]
+  listings         ChannelListing[]
 }
 
 // Session de connexion : le cookie porte un jeton aléatoire, seul son hash est stocké.
@@ -149,6 +152,7 @@ model Product {
   variants       ProductVariant[]
   channels       ProductChannel[]
   skus           Sku[]
+  listings       ChannelListing[]
 
   @@index([organizationId, updatedAt])
 }
@@ -210,8 +214,83 @@ model ProductChannel {
   priceMode  PriceMode @default(BASE)
   priceCents Int? // si FIXED
   percentBps Int? // si PERCENT, en centièmes de % (1050 = +10,5 %)
+  // Champs propres au canal (ex. Depop : rayon, type de produit, taille, frais de port).
+  details    Json?
   updatedAt  DateTime  @updatedAt
   product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, channel])
+}
+
+// ---------------------------------------------------------------------------
+// Connexion des canaux et publication (Depop en premier, puis eBay au Sprint 3)
+// ---------------------------------------------------------------------------
+
+enum ConnectionStatus {
+  CONNECTED
+  NEEDS_REAUTH // jeton refusé ou expiré : le propriétaire doit reconnecter le compte
+}
+
+// Compte vendeur relié à la boutique. Les jetons sont chiffrés (AES-256-GCM).
+model ChannelConnection {
+  id                   String           @id @default(cuid())
+  organizationId       String
+  channel              Channel
+  status               ConnectionStatus @default(CONNECTED)
+  externalAccountId    String?
+  externalUsername     String?
+  accessTokenEnc       String
+  refreshTokenEnc      String?
+  accessTokenExpiresAt DateTime?
+  scopes               String           @default("")
+  // Réglages propres au canal (ex. Depop : État d'expédition).
+  settings             Json             @default("{}")
+  connectedById        String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  organization         Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, channel])
+}
+
+// Demande de connexion OAuth en cours (protection CSRF + vérificateur PKCE), valable 10 minutes.
+model OAuthState {
+  id              String       @id @default(cuid())
+  stateHash       String       @unique
+  organizationId  String
+  userId          String
+  channel         Channel
+  codeVerifierEnc String
+  expiresAt       DateTime
+  createdAt       DateTime     @default(now())
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+enum ListingStatus {
+  PENDING // publication demandée, en attente du worker
+  LISTED // en ligne sur le canal
+  ERROR // refusée par le canal ou erreur technique
+  REMOVED // retirée du canal
+}
+
+// Une annonce sur un canal, par SKU (article unique ou variante).
+model ChannelListing {
+  id             String        @id @default(cuid())
+  organizationId String
+  productId      String?
+  channel        Channel
+  skuCode        String
+  status         ListingStatus @default(PENDING)
+  externalId     String?
+  externalUrl    String?
+  errorCode      String?
+  errorMessage   String?
+  publishedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product        Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, channel, skuCode])
+  @@index([productId])
 }

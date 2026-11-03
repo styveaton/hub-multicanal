@@ -1,12 +1,29 @@
 import { prisma } from "@hub/db";
+import { FakeDepop, createDepopClient, loadChannelConfig } from "@hub/channels";
 import { buildApp } from "./app.js";
 import { loadEnv } from "./env.js";
 import { createSmtpMailer } from "./lib/mailer.js";
+import { BullJobQueue } from "./lib/queue.js";
 import { S3Storage } from "./lib/storage.js";
 
 const env = loadEnv();
 const storage = new S3Storage(env);
-const app = buildApp(env, { prisma, mailer: createSmtpMailer(env), storage });
+const channelConfig = loadChannelConfig();
+// En local sans clés Depop : faux Depop servi par l'API (le worker l'appelle en HTTP).
+const fakeDepop = channelConfig.depop.mode === "fake" ? new FakeDepop() : undefined;
+const queue = new BullJobQueue(env.REDIS_URL ?? "redis://localhost:6379");
+const app = buildApp(env, {
+  prisma,
+  mailer: createSmtpMailer(env),
+  storage,
+  channels: {
+    config: channelConfig,
+    depop: createDepopClient(channelConfig.depop, fakeDepop?.fetch),
+    queue,
+    fakeDepop,
+  },
+});
+app.addHook("onClose", () => queue.close());
 
 storage
   .ensureBucket()

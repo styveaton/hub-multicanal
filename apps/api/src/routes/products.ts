@@ -7,6 +7,11 @@ import {
   CHANNEL_LABEL,
   CHANNEL_TITLE_MAX,
   DEFAULT_CURRENCY,
+  DEPOP_DEPARTMENTS,
+  depopIssues,
+  type DepopDepartment,
+  type DepopDetails,
+  type DepopIssue,
   PERCENT_BPS_MAX,
   PERCENT_BPS_MIN,
   applyPriceRule,
@@ -16,6 +21,7 @@ import {
 } from "@hub/shared";
 import { HttpError } from "../lib/errors.js";
 import { requirePermission } from "../plugins/auth.js";
+import { SUPPORTED_CHANNELS } from "./channels.js";
 import { photoUrl } from "./photos.js";
 
 // ---------------------------------------------------------------------------
@@ -88,8 +94,19 @@ type ProductInput = z.infer<typeof ProductInput>;
 
 const ChannelParam = z.enum(CHANNELS);
 
+// Champs propres à Depop (rayon, type, taille, port). Les valeurs sont contrôlées par depopIssues.
+const DepopDetailsInput = z
+  .object({
+    department: z.enum(DEPOP_DEPARTMENTS.map((d) => d.id) as [DepopDepartment, ...DepopDepartment[]]).optional(),
+    productType: z.string().trim().min(1).max(60).optional(),
+    sizeId: z.number().int().positive().optional(),
+    shippingCents: z.number().int().min(0).max(100_000).optional(),
+  })
+  .strict();
+
 const ChannelInput = z.object({
   enabled: z.boolean(),
+  details: z.record(z.unknown()).nullish(),
   title: z.string().trim().max(255).nullish(),
   category: z.string().trim().max(200).nullish(),
   price: z.discriminatedUnion("mode", [
@@ -114,6 +131,7 @@ const productInclude = {
   variants: { orderBy: { position: "asc" }, include: { sku: true } },
   channels: true,
   skus: { where: { variantId: null } },
+  listings: { orderBy: { skuCode: "asc" } },
 } satisfies Prisma.ProductInclude;
 
 type ProductWithRelations = Prisma.ProductGetPayload<{ include: typeof productInclude }>;
@@ -122,9 +140,15 @@ type ChannelRow = ProductWithRelations["channels"][number];
 /** Articles vendables : l'article unique, ou chaque variante. */
 function sellableItems(p: ProductWithRelations) {
   if (p.mode === "SINGLE") {
-    return [{ variantId: null as string | null, sku: p.skus[0]?.code ?? "", priceCents: p.priceCents ?? 0, quantity: 1 }];
+    return [{ variantId: null as string | null, sku: p.skus[0]?.code ?? "", priceCents: p.priceCents ?? 0, quantity: 1, attributes: undefined }];
   }
-  return p.variants.map((v) => ({ variantId: v.id as string | null, sku: v.sku?.code ?? "", priceCents: v.priceCents, quantity: v.quantity }));
+  return p.variants.map((v) => ({
+    variantId: v.id as string | null,
+    sku: v.sku?.code ?? "",
+    priceCents: v.priceCents,
+    quantity: v.quantity,
+    attributes: v.attributes as Record<string, string> | undefined,
+  }));
 }
 
 function ruleOf(row: ChannelRow | undefined): PriceRule {
@@ -138,12 +162,18 @@ function serializeChannel(p: ProductWithRelations, channel: Channel) {
   const rule = ruleOf(row);
   const effectiveTitle = row?.title || p.title;
   const enabled = row?.enabled ?? CHANNEL_DEFAULT_ENABLED[channel];
+  const details = (row?.details ?? {}) as DepopDetails;
   // Codes seulement : le front affiche le texte dans la langue de l'utilisateur.
-  const warnings: Array<{ code: "title_too_long"; length: number; max: number } | { code: "category_missing" }> = [];
-  if (effectiveTitle.length > CHANNEL_TITLE_MAX[channel]) {
-    warnings.push({ code: "title_too_long", length: effectiveTitle.length, max: CHANNEL_TITLE_MAX[channel] });
+  const warnings: Array<{ code: "title_too_long"; length: number; max: number } | { code: "category_missing" } | DepopIssue> = [];
+  if (channel === "DEPOP") {
+    // Depop n'a ni titre ni catégorie libre : ses propres contrôles remplacent les avertissements génériques.
+    warnings.push(...depopWarnings(p, details, rule));
+  } else {
+    if (effectiveTitle.length > CHANNEL_TITLE_MAX[channel]) {
+      warnings.push({ code: "title_too_long", length: effectiveTitle.length, max: CHANNEL_TITLE_MAX[channel] });
+    }
+    if (enabled && !row?.category) warnings.push({ code: "category_missing" });
   }
-  if (enabled && !row?.category) warnings.push({ code: "category_missing" });
   return {
     channel,
     label: CHANNEL_LABEL[channel],
@@ -161,8 +191,36 @@ function serializeChannel(p: ProductWithRelations, channel: Channel) {
       ...feePreview(applyPriceRule(item.priceCents, rule), channel),
     })),
     warnings,
+    details: row?.details ?? null,
+    // Publication réelle possible pour ce canal (Depop pour l'instant).
+    publishable: SUPPORTED_CHANNELS.has(channel),
+    listings: p.listings
+      .filter((l) => l.channel === channel)
+      .map((l) => ({
+        sku: l.skuCode,
+        status: l.status,
+        externalUrl: l.externalUrl,
+        errorCode: l.errorCode,
+        errorMessage: l.errorMessage,
+        updatedAt: l.updatedAt,
+      })),
   };
 }
+
+function depopWarnings(p: ProductWithRelations, details: DepopDetails, rule: PriceRule) {
+  return depopIssues({
+    mode: p.mode,
+    title: p.title,
+    description: p.description,
+    brand: p.brand,
+    details,
+    items: sellableItems(p).map((i) => ({ sku: i.sku, priceCents: applyPriceRule(i.priceCents, rule), attributes: i.attributes })),
+  });
+}
+
+/** Annonces en ligne ou en cours d'envoi : toute modification de la fiche doit être renvoyée. */
+const hasActiveListings = (p: ProductWithRelations, channel: Channel) =>
+  p.listings.some((l) => l.channel === channel && (l.status === "LISTED" || l.status === "PENDING"));
 
 function serializeProduct(p: ProductWithRelations) {
   const items = sellableItems(p);
@@ -386,7 +444,9 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
     for (const ph of removedPhotos) {
       await app.storage.delete(ph.storageKey).catch((err) => request.log.warn(err, "suppression photo S3"));
     }
-    return serializeProduct(await loadProduct(app, organizationId, existing.id));
+    const updated = await loadProduct(app, organizationId, existing.id);
+    await syncListedChannels(updated);
+    return serializeProduct(updated);
   });
 
   app.delete<{ Params: { id: string } }>("/:id", canManage, async (request, reply) => {
@@ -396,6 +456,11 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
       app.prisma.productPhoto.deleteMany({ where: { productId: existing.id } }),
       app.prisma.product.delete({ where: { id: existing.id } }),
     ]);
+    // Les annonces en ligne sont retirées des canaux par le worker.
+    for (const channel of SUPPORTED_CHANNELS) {
+      const skus = existing.listings.filter((l) => l.channel === channel && l.status !== "REMOVED").map((l) => l.skuCode);
+      if (skus.length > 0) await app.channels.queue.add({ name: "remove", data: { organizationId, channel, skus } });
+    }
     for (const ph of existing.photos) {
       await app.storage.delete(ph.storageKey).catch((err) => request.log.warn(err, "suppression photo S3"));
     }
@@ -417,10 +482,13 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
       throw new HttpError(400, "title_too_long", { max: CHANNEL_TITLE_MAX[channel] });
     }
 
+    const details = channel === "DEPOP" ? DepopDetailsInput.parse(input.details ?? {}) : undefined;
+
     const data = {
       enabled: input.enabled,
       title,
       category: input.category || null,
+      ...(details ? { details } : {}),
       priceMode: input.price.mode,
       priceCents: input.price.mode === "FIXED" ? input.price.priceCents : null,
       percentBps: input.price.mode === "PERCENT" ? input.price.percentBps : null,
@@ -433,6 +501,60 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
     // Toucher le produit pour remonter dans la liste « récemment modifiés ».
     await app.prisma.product.update({ where: { id: product.id }, data: { updatedAt: new Date() } });
 
+    const updated = await loadProduct(app, organizationId, product.id);
+    // Déjà en ligne : on renvoie les nouveaux réglages (ou on retire l'annonce si le canal est désactivé).
+    if (SUPPORTED_CHANNELS.has(channel) && hasActiveListings(updated, channel)) {
+      await markPending(updated, channel);
+      await app.channels.queue.add({ name: "publish", data: { productId: updated.id, channel } });
+    }
     return serializeChannel(await loadProduct(app, organizationId, product.id), channel);
   });
+
+  // Publication (ou mise à jour) de la fiche sur un canal branché : le worker fait l'envoi.
+  app.post<{ Params: { id: string; channel: string } }>("/:id/channels/:channel/publish", canManage, async (request) => {
+    const channel = ChannelParam.parse(request.params.channel);
+    if (!SUPPORTED_CHANNELS.has(channel)) throw new HttpError(400, "channel_not_supported");
+    const { organizationId } = request.auth!;
+    const product = await loadProduct(app, organizationId, request.params.id);
+
+    const connection = await app.prisma.channelConnection.findUnique({
+      where: { organizationId_channel: { organizationId, channel } },
+    });
+    if (!connection) throw new HttpError(409, "channel_not_connected");
+    if (connection.status !== "CONNECTED") throw new HttpError(409, "channel_needs_reauth");
+    if (!(connection.settings as { shipFromState?: string } | null)?.shipFromState) throw new HttpError(409, "ship_from_missing");
+
+    const settings = serializeChannel(product, channel);
+    if (settings.warnings.length > 0) throw new HttpError(400, "listing_incomplete", { warnings: settings.warnings });
+
+    // Publier active le canal sur la fiche.
+    await app.prisma.productChannel.upsert({
+      where: { productId_channel: { productId: product.id, channel } },
+      create: { productId: product.id, channel, enabled: true },
+      update: { enabled: true },
+    });
+    await markPending(product, channel);
+    await app.channels.queue.add({ name: "publish", data: { productId: product.id, channel } });
+    return serializeChannel(await loadProduct(app, organizationId, product.id), channel);
+  });
+
+  /** Chaque SKU de la fiche passe « en attente » jusqu'au passage du worker. */
+  async function markPending(p: ProductWithRelations, channel: Channel) {
+    for (const item of sellableItems(p)) {
+      await app.prisma.channelListing.upsert({
+        where: { organizationId_channel_skuCode: { organizationId: p.organizationId, channel, skuCode: item.sku } },
+        create: { organizationId: p.organizationId, productId: p.id, channel, skuCode: item.sku },
+        update: { productId: p.id, status: "PENDING", errorCode: null, errorMessage: null },
+      });
+    }
+  }
+
+  /** Fiche maître modifiée : on renvoie la mise à jour aux canaux où elle est en ligne. */
+  async function syncListedChannels(p: ProductWithRelations) {
+    for (const channel of SUPPORTED_CHANNELS) {
+      if (!hasActiveListings(p, channel)) continue;
+      await markPending(p, channel);
+      await app.channels.queue.add({ name: "publish", data: { productId: p.id, channel } });
+    }
+  }
 };

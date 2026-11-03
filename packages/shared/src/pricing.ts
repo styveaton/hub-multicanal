@@ -70,7 +70,8 @@ export const CHANNEL_INTEGRATION: Record<Channel, ChannelIntegration> = {
   FACEBOOK_MARKETPLACE: "assisted",
   MERCARI: "assisted",
   POSHMARK: "assisted",
-  DEPOP: "assisted",
+  // Selling API officielle, accès sur demande auprès de Depop.
+  DEPOP: "api",
   VINTED: "assisted",
   GRAILED: "assisted",
 };

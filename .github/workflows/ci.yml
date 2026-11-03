@@ -28,7 +28,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build -w @hub/shared -w @hub/db
+      - run: npm run build -w @hub/shared -w @hub/db -w @hub/channels
       - run: npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
       - run: npm run typecheck
       - run: npm test

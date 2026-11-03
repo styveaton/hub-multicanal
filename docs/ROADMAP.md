@@ -7,7 +7,8 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 | 0 – Pré-requis | Accès eBay, Amazon SP-API, TikTok Shop, Stripe, domaines | Voir [DEMARCHES-EXTERNES.md](DEMARCHES-EXTERNES.md) |
 | 1 – Fondations (US1) | Comptes, rôles, invitation par email, CI/CD, Docker, schéma DB, staging | **Comptes et invitations faits**, staging à faire |
 | 2 – Fiche produit maître (US4-US5) | CRUD produits et variantes, médias, adaptation par canal | **Fait** (QA manuelle à compléter) |
-| 3 – eBay (US3, US6-US7) | OAuth eBay, jetons chiffrés, publication via BullMQ | À venir |
+| 2 bis – Depop | Connexion OAuth (PKCE), jetons chiffrés, publication et mise à jour via BullMQ, page Canaux | **Fait** contre un faux Depop ; attend les clés partenaire |
+| 3 – eBay (US3, US6-US7) | OAuth eBay et publication, en réutilisant l'architecture Depop (`packages/channels`) | À venir |
 | 4 – Ventes et stock (US8-US9) | Stock central, anti double vente, import des commandes | À venir |
 | 5 – TikTok Shop + Amazon | Connecteurs, mapping, quotas | À venir |
 | 6 – Facturation et lancement (US2, US10) | Stripe et paliers, dashboard, bêta fermée | À venir |

@@ -51,10 +51,20 @@ Ces canaux sont déjà dans l'application (onglets de la fiche produit). La publ
 - [ ] Reporter `SHOPIFY_API_KEY` et `SHOPIFY_API_SECRET`, configurer l'URL de redirection OAuth
 - [ ] Passer la revue de l'App Store Shopify avant d'ouvrir l'app à tous les marchands
 
-## 7. Places de marché sans API publique
-Facebook Marketplace, Mercari, Poshmark, Depop, Vinted et Grailed n'ont pas d'API ouverte pour publier des annonces. Les outils du marché (Vendoo, List Perfectly, Closo…) passent par une **extension de navigateur** qui remplit les formulaires dans la session du vendeur.
+## 7. Depop : accès partenaire à la Selling API (premier canal branché)
+L'intégration est codée et testée contre un faux Depop (`DEPOP_ENV=fake` en local). Pour publier pour de vrai :
+- [ ] Demander l'accès par email (adresse sur https://partnerapi.depop.com/api-docs/) : OmniList, outil multi-canal pour vendeurs aux États-Unis
+- [ ] Recevoir le client OAuth de test (bac à sable `partnerapi-staging.depop.com`) : reporter `DEPOP_CLIENT_ID` et `DEPOP_CLIENT_SECRET`, passer `DEPOP_ENV=staging`
+- [ ] Faire enregistrer l'URL de retour OAuth : `<WEB_URL>/api/channels/depop/callback` (staging puis production)
+- [ ] Déployer sur une adresse publique (`PUBLIC_API_URL`) : Depop télécharge les photos par lien signé, impossible depuis localhost
+- [ ] Générer `TOKEN_ENCRYPTION_KEY` et `MEDIA_URL_SECRET` pour staging et production
+- [ ] Plus tard : webhooks Depop (vente sur Depop → retrait sur les autres canaux)
+
+La liste des catégories et tailles Depop est figée dans `packages/shared/src/depop-taxonomy.ts` (extraite le 3 novembre 2026). À rafraîchir depuis un navigateur si Depop refuse une catégorie.
+
+## 8. Places de marché sans API publique
+Facebook Marketplace, Mercari, Poshmark, Vinted et Grailed n'ont pas d'API ouverte pour publier des annonces. Les outils du marché (Vendoo, List Perfectly, Closo…) passent par une **extension de navigateur** qui remplit les formulaires dans la session du vendeur.
 - [ ] Lire les conditions d'utilisation de chaque site sur l'automatisation avant de développer l'extension
-- [ ] Depop : demander l'accès à son API partenaire (sur dossier), qui éviterait l'extension
 - [ ] Facebook : les boutiques Facebook/Instagram passent par le catalogue Meta Commerce (API Graph) ; Marketplace entre particuliers n'a pas d'API
 
-Les frais et limites de titre affichés dans l'app sont **indicatifs** (sources : sites des plateformes et calculateurs, novembre 2026). À revérifier sur le centre d'aide de chaque site, en particulier les limites de titre de Depop, Vinted et Grailed.
+Les frais et limites de titre affichés dans l'app sont **indicatifs** (sources : sites des plateformes et calculateurs, novembre 2026). À revérifier sur le centre d'aide de chaque site, en particulier les limites de titre de Vinted et Grailed (Depop n'a pas de titre : description de 1000 caractères).

@@ -21,7 +21,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { key: "products", icon: Tag, href: "/products" },
   { key: "stock", icon: Layers },
-  { key: "channels", icon: Share2, permission: "channels:manage" },
+  { key: "channels", icon: Share2, href: "/channels", permission: "channels:manage" },
   { key: "analytics", icon: BarChart3 },
   { key: "team", icon: Users, href: "/team" },
   { key: "billing", icon: CreditCard, permission: "billing:manage" },
