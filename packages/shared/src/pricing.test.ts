@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { applyPriceRule, feePreview, formatMoney } from "./pricing.js";
+import {
+  CHANNELS,
+  CHANNEL_INTEGRATION,
+  CHANNEL_LABEL,
+  CHANNEL_TITLE_MAX,
+  FEE_NOTES,
+  INDICATIVE_FEES,
+  applyPriceRule,
+  feePreview,
+  formatMoney,
+} from "./pricing.js";
 
 describe("prix par canal (US5)", () => {
   it("BASE reprend le prix maître", () => {
@@ -33,12 +43,43 @@ describe("aperçu des frais (US5)", () => {
   });
 
   it("accepte des taux personnalisés", () => {
-    const rates = {
-      EBAY: { percentBps: 1000, fixedCents: 0 },
-      AMAZON: { percentBps: 0, fixedCents: 0 },
-      TIKTOK_SHOP: { percentBps: 0, fixedCents: 0 },
-    };
+    const rates = { EBAY: { percentBps: 1000, fixedCents: 0 } };
     expect(feePreview(5000, "EBAY", rates).netCents).toBe(4500);
+    // Canal absent des taux personnalisés : taux indicatif.
+    expect(feePreview(10000, "AMAZON", rates).feeCents).toBe(1500);
+  });
+
+  it("Poshmark : forfait 2,95 $ sous 15 $, puis 20 %", () => {
+    expect(feePreview(1499, "POSHMARK").feeCents).toBe(295);
+    expect(feePreview(1500, "POSHMARK").feeCents).toBe(300);
+    expect(feePreview(5000, "POSHMARK").feeCents).toBe(1000);
+  });
+
+  it("Facebook Marketplace : 10 % avec 0,80 $ minimum", () => {
+    expect(feePreview(500, "FACEBOOK_MARKETPLACE").feeCents).toBe(80);
+    expect(feePreview(5000, "FACEBOOK_MARKETPLACE").feeCents).toBe(500);
+  });
+
+  it("Etsy, Depop et Vinted", () => {
+    expect(feePreview(10000, "ETSY").feeCents).toBe(995); // 9,5 % + 0,45 $
+    expect(feePreview(10000, "DEPOP").feeCents).toBe(375); // 3,3 % + 0,45 $
+    expect(feePreview(10000, "VINTED")).toEqual({ priceCents: 10000, feeCents: 0, netCents: 10000 });
+  });
+
+  it("les frais ne dépassent jamais le prix", () => {
+    expect(feePreview(30, "EBAY")).toEqual({ priceCents: 30, feeCents: 30, netCents: 0 });
+  });
+});
+
+describe("liste des canaux", () => {
+  it("chaque canal a un nom, une limite de titre, des frais et un type de connexion", () => {
+    for (const c of CHANNELS) {
+      expect(CHANNEL_LABEL[c]).toBeTruthy();
+      expect(CHANNEL_TITLE_MAX[c]).toBeGreaterThan(0);
+      expect(INDICATIVE_FEES[c]).toBeDefined();
+      expect(FEE_NOTES[c].fr && FEE_NOTES[c].en).toBeTruthy();
+      expect(["api", "assisted"]).toContain(CHANNEL_INTEGRATION[c]);
+    }
   });
 });
 

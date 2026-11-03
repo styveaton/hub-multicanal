@@ -4,7 +4,7 @@ import type { Messages } from "./fr";
 const en: Messages = {
   meta: {
     title: "OmniList · List once. Sync everywhere.",
-    description: "List once, sell everywhere: listings and inventory synced across eBay, Amazon and TikTok Shop.",
+    description: "List once, sell everywhere: listings and inventory synced across eBay, Amazon, Etsy, Poshmark, Depop and many more.",
   },
   common: {
     loading: "Loading…",
@@ -32,8 +32,8 @@ const en: Messages = {
     pitch:
       "Create, update and sync your products across all your sales channels. Listings, inventory and details stay aligned, with no overselling.",
     cta: "Create my account",
-    moreSoon: "And more soon",
-    visualLabel: "One product synced to eBay, Amazon and TikTok Shop",
+    moreChannels: (n) => `+ ${n} more`,
+    visualLabel: "One product synced to eBay, Amazon, Poshmark and other marketplaces",
   },
   login: {
     title: "Welcome back",
@@ -207,6 +207,8 @@ const en: Messages = {
     titleTooLong: (channel, max) => `Title too long for ${channel} (${max} characters maximum).`,
     publishOn: (channel) => `Publishing on ${channel}`,
     publishHint: (channel) => `Actual publishing will come once your ${channel} account is connected.`,
+    publishHintAssisted: (channel) =>
+      `${channel} has no public API: publishing will go through the OmniList extension in your browser.`,
     enabled: "On",
     disabled: "Off",
     titleFor: (channel) => `Title for ${channel}`,

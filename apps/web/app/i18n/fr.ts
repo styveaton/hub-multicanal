@@ -5,7 +5,7 @@
 const fr = {
   meta: {
     title: "OmniList · Publiez une fois. Vendez partout.",
-    description: "Publiez une fois, vendez partout : annonces et stock synchronisés sur eBay, Amazon et TikTok Shop.",
+    description: "Publiez une fois, vendez partout : annonces et stock synchronisés sur eBay, Amazon, Etsy, Poshmark, Depop et bien d'autres.",
   },
   common: {
     loading: "Chargement…",
@@ -34,8 +34,8 @@ const fr = {
     pitch:
       "Créez, mettez à jour et synchronisez vos produits sur tous vos canaux de vente. Annonces, stock et détails restent alignés, sans double vente.",
     cta: "Créer mon compte",
-    moreSoon: "Et bientôt plus",
-    visualLabel: "Un produit synchronisé vers eBay, Amazon et TikTok Shop",
+    moreChannels: (n: number) => `+ ${n} autres`,
+    visualLabel: "Un produit synchronisé vers eBay, Amazon, Poshmark et d'autres places de marché",
   },
   login: {
     title: "Bon retour",
@@ -212,6 +212,8 @@ const fr = {
     titleTooLong: (channel: string, max: number) => `Titre trop long pour ${channel} (${max} caractères maximum).`,
     publishOn: (channel: string) => `Publication sur ${channel}`,
     publishHint: (channel: string) => `La publication réelle arrivera avec la connexion du compte ${channel}.`,
+    publishHintAssisted: (channel: string) =>
+      `${channel} n'a pas d'API publique : la publication passera par l'extension OmniList dans votre navigateur.`,
     enabled: "Activé",
     disabled: "Désactivé",
     titleFor: (channel: string) => `Titre pour ${channel}`,

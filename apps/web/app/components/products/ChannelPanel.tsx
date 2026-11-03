@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Info } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { FEE_NOTES, PERCENT_BPS_MAX, PERCENT_BPS_MIN, applyPriceRule, feePreview, formatMoney, type PriceRule } from "@hub/shared";
+import { CHANNEL_INTEGRATION, FEE_NOTES, PERCENT_BPS_MAX, PERCENT_BPS_MIN, applyPriceRule, feePreview, formatMoney, type PriceRule } from "@hub/shared";
 import { Alert } from "../Alert";
 import { useI18n } from "../../i18n/I18nProvider";
 import { api, centsToInput, parseMoney, type ChannelSettings, type ProductDetail } from "../../lib/api";
@@ -79,7 +79,9 @@ export function ChannelPanel({
         <div className="card-header">
           <div>
             <h2>{c.publishOn(label)}</h2>
-            <p className="muted">{c.publishHint(label)}</p>
+            <p className="muted">
+              {CHANNEL_INTEGRATION[settings.channel] === "assisted" ? c.publishHintAssisted(label) : c.publishHint(label)}
+            </p>
           </div>
           <label className="switch">
             <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />

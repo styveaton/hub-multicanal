@@ -353,7 +353,7 @@ select.input { appearance: auto; }
 .note svg { flex: none; margin-top: 0.15rem; }
 
 /* Onglets de la fiche */
-.tabs { display: flex; gap: 0.25rem; overflow-x: auto; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; scrollbar-width: none; }
+.tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; overflow-x: auto; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; scrollbar-width: none; }
 .tab { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.7rem 1rem; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-muted); font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer; margin-bottom: -1px; }
 .tab:hover { color: var(--navy); }
 .tab[aria-selected="true"] { color: var(--blue); border-bottom-color: var(--blue); }

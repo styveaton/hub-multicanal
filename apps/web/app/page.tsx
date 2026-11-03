@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, Store } from "lucide-react";
+import { CHANNELS as ALL_CHANNELS } from "@hub/shared";
 import { BrandKeywords } from "./components/Brand";
 import { Logo, LogoIcon } from "./components/Logo";
 import { useI18n } from "./i18n/I18nProvider";
@@ -11,8 +12,8 @@ import { LanguageSwitcher } from "./i18n/LanguageSwitcher";
 const CHANNELS = [
   { name: "eBay", x: 18, y: 20 },
   { name: "Amazon", x: 82, y: 20 },
-  { name: "TikTok Shop", x: 18, y: 80 },
-  { name: null, x: 82, y: 80 }, // « Et bientôt plus »
+  { name: "Poshmark", x: 18, y: 80 },
+  { name: null, x: 82, y: 80 }, // « + N autres »
 ];
 
 export default function Home() {
@@ -74,7 +75,7 @@ export default function Home() {
           </div>
           {CHANNELS.map((c) => (
             <span key={`${c.x}-${c.y}`} className="channel-chip" style={{ left: `${c.x}%`, top: `${c.y}%` }}>
-              <Store size={16} aria-hidden /> {c.name ?? t.home.moreSoon}
+              <Store size={16} aria-hidden /> {c.name ?? t.home.moreChannels(ALL_CHANNELS.length - 3)}
             </span>
           ))}
         </div>

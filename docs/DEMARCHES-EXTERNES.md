@@ -33,5 +33,28 @@ Tâche ClickUp : « Compte Stripe + environnements staging/production »
 - [ ] Installer **Docker Desktop** (WSL 2) pour lancer Postgres, Redis et Mailpit
 - [ ] Créer le dépôt distant (GitHub) et pousser le code pour activer la CI
 
-## Hors MVP (phase 2)
-Facebook Marketplace, Vinted, Depop et Poshmark n'ont pas d'API publique : vérifier les conditions d'utilisation avant tout développement.
+## 6. Autres places de marché avec API officielle (à planifier)
+Ces canaux sont déjà dans l'application (onglets de la fiche produit). La publication réelle demande un compte développeur.
+
+**Walmart Marketplace**
+- [ ] Faire approuver un compte vendeur sur sellercenter.walmart.com (dossier d'entreprise, délai de plusieurs semaines)
+- [ ] Créer les clés API dans le Developer Portal (developer.walmart.com) : `WALMART_CLIENT_ID`, `WALMART_CLIENT_SECRET`
+- [ ] Pour proposer l'app à d'autres vendeurs : demander le statut **Solution Provider**
+
+**Etsy**
+- [ ] Créer une application sur etsy.com/developers (API v3, OAuth 2)
+- [ ] Demander l'accès **commercial** (l'accès personnel ne sert qu'à sa propre boutique)
+- [ ] Reporter `ETSY_API_KEY` (keystring) et le secret partagé
+
+**Shopify**
+- [ ] Créer un compte Shopify Partner (partners.shopify.com) et une application publique
+- [ ] Reporter `SHOPIFY_API_KEY` et `SHOPIFY_API_SECRET`, configurer l'URL de redirection OAuth
+- [ ] Passer la revue de l'App Store Shopify avant d'ouvrir l'app à tous les marchands
+
+## 7. Places de marché sans API publique
+Facebook Marketplace, Mercari, Poshmark, Depop, Vinted et Grailed n'ont pas d'API ouverte pour publier des annonces. Les outils du marché (Vendoo, List Perfectly, Closo…) passent par une **extension de navigateur** qui remplit les formulaires dans la session du vendeur.
+- [ ] Lire les conditions d'utilisation de chaque site sur l'automatisation avant de développer l'extension
+- [ ] Depop : demander l'accès à son API partenaire (sur dossier), qui éviterait l'extension
+- [ ] Facebook : les boutiques Facebook/Instagram passent par le catalogue Meta Commerce (API Graph) ; Marketplace entre particuliers n'a pas d'API
+
+Les frais et limites de titre affichés dans l'app sont **indicatifs** (sources : sites des plateformes et calculateurs, novembre 2026). À revérifier sur le centre d'aide de chaque site, en particulier les limites de titre de Depop, Vinted et Grailed.

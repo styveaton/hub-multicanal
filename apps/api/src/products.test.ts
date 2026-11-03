@@ -130,10 +130,20 @@ describe("US4 : article unique", () => {
     const p = res.json();
     expect(p).toMatchObject({ mode: "SINGLE", sku: "VESTE-001", priceCents: 4500, quantity: 1, currency: "USD", brand: "Levi's" });
     expect(p.photos.map((ph: { id: string }) => ph.id)).toEqual([photos[2], photos[0], photos[1]]);
+    // eBay, Amazon et TikTok Shop activés d'office ; les autres s'activent dans leur onglet.
     expect(p.channels.map((c: { channel: string; enabled: boolean }) => [c.channel, c.enabled])).toEqual([
       ["EBAY", true],
       ["AMAZON", true],
       ["TIKTOK_SHOP", true],
+      ["WALMART", false],
+      ["ETSY", false],
+      ["SHOPIFY", false],
+      ["FACEBOOK_MARKETPLACE", false],
+      ["MERCARI", false],
+      ["POSHMARK", false],
+      ["DEPOP", false],
+      ["VINTED", false],
+      ["GRAILED", false],
     ]);
   });
 
@@ -341,6 +351,15 @@ describe("US5 : réglages par canal", () => {
     ]);
   });
 
+  it("activer Poshmark : apparaît dans la liste, frais au forfait sous 15 $", async () => {
+    const p = (await create(owner, single(await uploadMany(owner, 1)))).json(); // 45,00 $
+    const ch = (await put(p.id, "POSHMARK", { enabled: true, category: "Vestes", price: { mode: "FIXED", priceCents: 1200 } })).json();
+    expect(ch).toMatchObject({ channel: "POSHMARK", label: "Poshmark", enabled: true, titleMax: 80, warnings: [] });
+    expect(ch.preview[0]).toMatchObject({ priceCents: 1200, feeCents: 295, netCents: 905 });
+    const list = (await app.inject({ method: "GET", url: "/products", cookies: owner })).json();
+    expect(list.items[0].channels).toEqual(["EBAY", "AMAZON", "TIKTOK_SHOP", "POSHMARK"]);
+  });
+
   it("pourcentage hors bornes refusé", async () => {
     const p = (await create(owner, single(await uploadMany(owner, 1)))).json();
     expect((await put(p.id, "EBAY", { enabled: true, price: { mode: "PERCENT", percentBps: -9500 } })).statusCode).toBe(400);
@@ -381,7 +400,7 @@ describe("US5 : réglages par canal", () => {
 
   it("canal inconnu refusé", async () => {
     const p = (await create(owner, single(await uploadMany(owner, 1)))).json();
-    expect((await put(p.id, "ETSY", { enabled: true, price: { mode: "BASE" } })).statusCode).toBe(400);
+    expect((await put(p.id, "MYSPACE", { enabled: true, price: { mode: "BASE" } })).statusCode).toBe(400);
   });
 });
 

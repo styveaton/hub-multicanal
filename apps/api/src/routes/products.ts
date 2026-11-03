@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Prisma } from "@hub/db";
 import {
   CHANNELS,
+  CHANNEL_DEFAULT_ENABLED,
   CHANNEL_LABEL,
   CHANNEL_TITLE_MAX,
   DEFAULT_CURRENCY,
@@ -136,7 +137,7 @@ function serializeChannel(p: ProductWithRelations, channel: Channel) {
   const row = p.channels.find((c) => c.channel === channel);
   const rule = ruleOf(row);
   const effectiveTitle = row?.title || p.title;
-  const enabled = row?.enabled ?? true;
+  const enabled = row?.enabled ?? CHANNEL_DEFAULT_ENABLED[channel];
   // Codes seulement : le front affiche le texte dans la langue de l'utilisateur.
   const warnings: Array<{ code: "title_too_long"; length: number; max: number } | { code: "category_missing" }> = [];
   if (effectiveTitle.length > CHANNEL_TITLE_MAX[channel]) {
@@ -338,7 +339,7 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
           mode: input.mode,
           currency: DEFAULT_CURRENCY,
           priceCents: input.mode === "SINGLE" ? input.priceCents : null,
-          channels: { create: CHANNELS.map((channel) => ({ channel })) },
+          channels: { create: CHANNELS.map((channel) => ({ channel, enabled: CHANNEL_DEFAULT_ENABLED[channel] })) },
         },
       });
       await writeVariantsAndSkus(tx, organizationId, product.id, input, []);
