@@ -75,6 +75,8 @@ export interface ChannelOverview {
   connection: {
     status: "CONNECTED" | "NEEDS_REAUTH";
     username: string | null;
+    /** Boutique reliée : *.myshopify.com ou adresse du site WooCommerce. */
+    account: string | null;
     connectedAt: string;
     settings: { shipFromState?: string };
   } | null;

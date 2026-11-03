@@ -90,10 +90,10 @@ afterAll(async () => {
 });
 
 describe("connexion Depop", () => {
-  it("liste les 12 canaux ; Depop branché et disponible, pas encore connecté", async () => {
+  it("liste les 13 canaux ; Depop branché et disponible, pas encore connecté", async () => {
     const res = await app.inject({ method: "GET", url: "/channels", cookies: owner });
     const items = res.json().items;
-    expect(items).toHaveLength(12);
+    expect(items).toHaveLength(13);
     expect(items.find((c: { channel: string }) => c.channel === "DEPOP")).toMatchObject({
       supported: true,
       available: true,

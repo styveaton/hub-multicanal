@@ -1,5 +1,5 @@
 import { prisma } from "@hub/db";
-import { FakeDepop, createDepopClient, loadChannelConfig } from "@hub/channels";
+import { FakeDepop, FakeShopify, FakeWoo, createDepopClient, createShopifyClient, createWooClient, loadChannelConfig } from "@hub/channels";
 import { buildApp } from "./app.js";
 import { loadEnv } from "./env.js";
 import { createSmtpMailer } from "./lib/mailer.js";
@@ -11,6 +11,8 @@ const storage = new S3Storage(env);
 const channelConfig = loadChannelConfig();
 // En local sans clés Depop : faux Depop servi par l'API (le worker l'appelle en HTTP).
 const fakeDepop = channelConfig.depop.mode === "fake" ? new FakeDepop() : undefined;
+const fakeShopify = channelConfig.shopify.mode === "fake" ? new FakeShopify() : undefined;
+const fakeWoo = channelConfig.woo.mode === "fake" ? new FakeWoo() : undefined;
 const queue = new BullJobQueue(env.REDIS_URL ?? "redis://localhost:6379");
 const app = buildApp(env, {
   prisma,
@@ -19,8 +21,12 @@ const app = buildApp(env, {
   channels: {
     config: channelConfig,
     depop: createDepopClient(channelConfig.depop, fakeDepop?.fetch),
+    shopify: createShopifyClient(channelConfig.shopify, fakeShopify?.fetch),
+    woo: createWooClient(channelConfig.woo, fakeWoo?.fetch),
     queue,
     fakeDepop,
+    fakeShopify,
+    fakeWoo,
   },
 });
 app.addHook("onClose", () => queue.close());

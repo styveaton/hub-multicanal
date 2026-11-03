@@ -6,15 +6,8 @@ import {
   type DepopDetails,
   type ProductConditionCode,
 } from "@hub/shared";
+import type { SellableItem } from "../listing.js";
 import type { DepopProductBody } from "./client.js";
-
-export interface SellableItem {
-  sku: string;
-  /** Prix sur Depop, après la règle de prix du canal. */
-  priceCents: number;
-  quantity: number;
-  attributes?: Record<string, string>;
-}
 
 export interface DepopListingInput {
   product: { title: string; description: string; brand: string | null; condition: ProductConditionCode; currency: string };

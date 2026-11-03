@@ -6,7 +6,7 @@
 
 import type { Locale } from "./locale.js";
 
-/** Places de marché les plus utilisées aux États-Unis, dans l'ordre des onglets. */
+/** Places de marché et sites marchands les plus utilisés aux États-Unis, dans l'ordre des onglets. */
 export const CHANNELS = [
   "EBAY",
   "AMAZON",
@@ -14,6 +14,7 @@ export const CHANNELS = [
   "WALMART",
   "ETSY",
   "SHOPIFY",
+  "WOOCOMMERCE",
   "FACEBOOK_MARKETPLACE",
   "MERCARI",
   "POSHMARK",
@@ -30,6 +31,7 @@ export const CHANNEL_LABEL: Record<Channel, string> = {
   WALMART: "Walmart",
   ETSY: "Etsy",
   SHOPIFY: "Shopify",
+  WOOCOMMERCE: "WooCommerce",
   FACEBOOK_MARKETPLACE: "Facebook Marketplace",
   MERCARI: "Mercari",
   POSHMARK: "Poshmark",
@@ -46,6 +48,7 @@ export const CHANNEL_TITLE_MAX: Record<Channel, number> = {
   WALMART: 75,
   ETSY: 140,
   SHOPIFY: 255,
+  WOOCOMMERCE: 200,
   FACEBOOK_MARKETPLACE: 100,
   MERCARI: 80,
   POSHMARK: 80,
@@ -67,6 +70,7 @@ export const CHANNEL_INTEGRATION: Record<Channel, ChannelIntegration> = {
   WALMART: "api",
   ETSY: "api",
   SHOPIFY: "api",
+  WOOCOMMERCE: "api",
   FACEBOOK_MARKETPLACE: "assisted",
   MERCARI: "assisted",
   POSHMARK: "assisted",
@@ -84,6 +88,7 @@ export const CHANNEL_DEFAULT_ENABLED: Record<Channel, boolean> = {
   WALMART: false,
   ETSY: false,
   SHOPIFY: false,
+  WOOCOMMERCE: false,
   FACEBOOK_MARKETPLACE: false,
   MERCARI: false,
   POSHMARK: false,
@@ -137,6 +142,7 @@ export const INDICATIVE_FEES: Record<Channel, FeeRate> = {
   WALMART: { percentBps: 1500, fixedCents: 0 },
   ETSY: { percentBps: 950, fixedCents: 45 },
   SHOPIFY: { percentBps: 290, fixedCents: 30 },
+  WOOCOMMERCE: { percentBps: 290, fixedCents: 30 },
   FACEBOOK_MARKETPLACE: { percentBps: 1000, fixedCents: 0, minFeeCents: 80 },
   MERCARI: { percentBps: 1000, fixedCents: 0 },
   POSHMARK: { percentBps: 2000, fixedCents: 0, flatBelow: { priceCents: 1500, feeCents: 295 } },
@@ -170,6 +176,10 @@ export const FEE_NOTES: Record<Channel, Record<Locale, string>> = {
   SHOPIFY: {
     fr: "Aucune commission : frais de paiement Shopify Payments ~2,9 % + 0,30 $, hors abonnement mensuel.",
     en: "No commission: Shopify Payments processing ~2.9% + $0.30, excluding the monthly plan.",
+  },
+  WOOCOMMERCE: {
+    fr: "Aucune commission : frais de paiement WooPayments ou Stripe ~2,9 % + 0,30 $, hors hébergement.",
+    en: "No commission: WooPayments or Stripe processing ~2.9% + $0.30, excluding hosting.",
   },
   FACEBOOK_MARKETPLACE: {
     fr: "Commandes expédiées : ~10 % (0,80 $ minimum). Remise en main propre : gratuit.",

@@ -3,6 +3,8 @@ import { prisma } from "@hub/db";
 import {
   CHANNEL_QUEUE,
   createDepopClient,
+  createShopifyClient,
+  createWooClient,
   loadChannelConfig,
   processChannelJob,
   type ChannelJob,
@@ -12,7 +14,7 @@ import {
 /**
  * Worker de synchronisation des canaux : publication et mise à jour des annonces,
  * propagation du stock après chaque vente, relevé de secours des commandes.
- * Depop est branché ; eBay, Amazon et TikTok Shop suivront le même chemin.
+ * Depop, Shopify et WooCommerce sont branchés ; eBay, Etsy et les autres suivront le même chemin.
  */
 const redisUrl = new URL(process.env.REDIS_URL ?? "redis://localhost:6379");
 const connection = { host: redisUrl.hostname, port: Number(redisUrl.port || 6379) };
@@ -28,8 +30,16 @@ const enqueue = async (job: ChannelJob, opts: EnqueueOptions = {}) => {
     removeOnFail: 1000,
   });
 };
-// En mode fake, le faux Depop est servi par l'API (DEPOP_ENV=fake) : on l'appelle en HTTP.
-const deps = { prisma, cipher: config.cipher, media: config.media, depop: createDepopClient(config.depop), enqueue };
+// En mode fake, les faux canaux sont servis par l'API (routes /dev/fake-*) : on les appelle en HTTP.
+const deps = {
+  prisma,
+  cipher: config.cipher,
+  media: config.media,
+  depop: createDepopClient(config.depop),
+  shopify: createShopifyClient(config.shopify),
+  woo: createWooClient(config.woo),
+  enqueue,
+};
 
 // Relevé de secours des commandes : les webhooks des canaux peuvent se perdre.
 await queue.upsertJobScheduler(
@@ -47,7 +57,7 @@ const worker = new Worker(
 );
 
 worker.on("ready", () =>
-  console.log(`Worker ${CHANNEL_QUEUE} prêt (Depop : ${config.depop.mode}, relevé des commandes toutes les ${config.orderPollSeconds} s)`),
+  console.log(`Worker ${CHANNEL_QUEUE} prêt (Depop : ${config.depop.mode}, Shopify : ${config.shopify.mode}, WooCommerce : ${config.woo.mode}, relevé des commandes toutes les ${config.orderPollSeconds} s)`),
 );
 worker.on("failed", (job, err) => console.error(`[${CHANNEL_QUEUE}] job ${job?.id} (${job?.name}) échoué : ${err.message}`));
 

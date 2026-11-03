@@ -1,47 +1,37 @@
-import type { ChannelConnection, Prisma, PrismaClient } from "@hub/db";
-import { applyPriceRule, depopIssues, isUsState, type DepopDetails, type PriceRule, type ProductConditionCode } from "@hub/shared";
-import type { MediaSigner, TokenCipher } from "./crypto.js";
-import { DepopApiError, depopProductUrl, type DepopClient } from "./depop/client.js";
-import { buildDepopBody, type SellableItem } from "./depop/mapping.js";
+import type { ChannelConnection } from "@hub/db";
+import { depopIssues, isUsState, type DepopDetails, type ProductConditionCode } from "@hub/shared";
+import { DepopApiError, depopProductUrl } from "./depop/client.js";
+import { buildDepopBody } from "./depop/mapping.js";
+import {
+  NotConnectedError,
+  RetryableChannelError,
+  findConnection,
+  isOnChannel,
+  loadProduct,
+  logChannel as logAny,
+  markAll as markAny,
+  priceRule,
+  saveListing as saveAny,
+  sellableItems,
+  type ChannelDeps,
+  type LoadedProduct,
+} from "./listing.js";
 
 /**
- * Publication des fiches sur les canaux, exécutée par le worker (file BullMQ « channel-sync »).
- * Seul Depop est branché pour l'instant ; eBay suivra le même chemin.
+ * Publication sur Depop, exécutée par le worker (file BullMQ « channel-sync »).
+ * Depop : une annonce par SKU, mise à jour par SKU.
  */
 
-export interface ChannelDeps {
-  prisma: PrismaClient;
-  cipher: TokenCipher;
-  media: MediaSigner;
-  depop: DepopClient;
-  now?: () => Date;
-}
-
-/** Erreur temporaire : le job est relancé par BullMQ. */
-export class RetryableChannelError extends Error {}
-
-/** Trace une action sur un canal dans le journal de synchronisation. */
-async function logChannel(
-  deps: ChannelDeps,
-  data: { organizationId: string; productId: string | null; skuCode: string; ok: boolean; message: string },
-) {
-  await deps.prisma.syncLog.create({
-    data: {
-      organizationId: data.organizationId,
-      type: data.ok ? "CHANNEL_UPDATE" : "CHANNEL_ERROR",
-      channel: "DEPOP",
-      skuCode: data.skuCode,
-      productId: data.productId,
-      message: data.message,
-    },
-  });
-}
+const logChannel = (deps: ChannelDeps, data: Parameters<typeof logAny>[2]) => logAny(deps, "DEPOP", data);
+const saveListing = (deps: ChannelDeps, organizationId: string, skuCode: string, data: Parameters<typeof saveAny>[4]) =>
+  saveAny(deps, "DEPOP", organizationId, skuCode, data);
+const markAll = (deps: ChannelDeps, p: LoadedProduct, skus: string[], code: string, message: string | null) =>
+  markAny(deps, "DEPOP", p, skus, code, message);
+const isOnDepop = isOnChannel;
 
 // ---------------------------------------------------------------------------
 // Jetons
 // ---------------------------------------------------------------------------
-
-export class NotConnectedError extends Error {}
 
 /** Jeton d'accès valide, rafraîchi s'il expire dans moins d'une minute. */
 export async function depopAccessToken(deps: ChannelDeps, connection: ChannelConnection): Promise<string> {
@@ -83,58 +73,8 @@ async function handleUnauthorized(deps: ChannelDeps, connection: ChannelConnecti
 // Annonces
 // ---------------------------------------------------------------------------
 
-const productInclude = {
-  photos: { orderBy: { position: "asc" } },
-  variants: { orderBy: { position: "asc" }, include: { sku: true } },
-  skus: { where: { variantId: null } },
-  channels: { where: { channel: "DEPOP" } },
-  listings: { where: { channel: "DEPOP" } },
-} satisfies Prisma.ProductInclude;
-
-type LoadedProduct = Prisma.ProductGetPayload<{ include: typeof productInclude }>;
-
-function priceRule(row: LoadedProduct["channels"][number] | undefined): PriceRule {
-  if (row?.priceMode === "FIXED" && row.priceCents != null) return { mode: "FIXED", priceCents: row.priceCents };
-  if (row?.priceMode === "PERCENT" && row.percentBps != null) return { mode: "PERCENT", percentBps: row.percentBps };
-  return { mode: "BASE" };
-}
-
-function sellableItems(p: LoadedProduct, rule: PriceRule): SellableItem[] {
-  if (p.mode === "SINGLE") {
-    return [{ sku: p.skus[0]?.code ?? "", priceCents: applyPriceRule(p.priceCents ?? 0, rule), quantity: p.skus[0]?.quantity ?? 0 }];
-  }
-  return p.variants.map((v) => ({
-    sku: v.sku?.code ?? "",
-    priceCents: applyPriceRule(v.priceCents, rule),
-    quantity: v.sku?.quantity ?? 0,
-    attributes: v.attributes as Record<string, string>,
-  }));
-}
-
-type ListingUpdate = Omit<Prisma.ChannelListingUncheckedCreateInput, "organizationId" | "channel" | "skuCode">;
-
-async function saveListing(deps: ChannelDeps, organizationId: string, skuCode: string, data: ListingUpdate) {
-  await deps.prisma.channelListing.upsert({
-    where: { organizationId_channel_skuCode: { organizationId, channel: "DEPOP", skuCode } },
-    create: { organizationId, channel: "DEPOP", skuCode, ...data },
-    update: data,
-  });
-}
-
-/**
- * Annonce présente sur Depop : déjà publiée (identifiant Depop connu) et pas retirée.
- * Le statut seul ne suffit pas : une modification de la fiche repasse l'annonce « en attente ».
- */
-const isOnDepop = (l: { externalId: string | null; status: string }) => l.externalId != null && l.status !== "REMOVED";
-
-async function markAll(deps: ChannelDeps, p: LoadedProduct, skus: string[], errorCode: string, errorMessage: string | null) {
-  for (const sku of skus) {
-    await saveListing(deps, p.organizationId, sku, { productId: p.id, status: "ERROR", errorCode, errorMessage });
-  }
-}
-
 export async function publishToDepop(deps: ChannelDeps, productId: string) {
-  const p = await deps.prisma.product.findUnique({ where: { id: productId }, include: productInclude });
+  const p = await loadProduct(deps, productId, "DEPOP");
   if (!p) return;
   const settings = p.channels[0];
   const rule = priceRule(settings);
@@ -143,9 +83,7 @@ export async function publishToDepop(deps: ChannelDeps, productId: string) {
   // Annonces encore sur Depop pour des SKU qui n'existent plus (variante supprimée, SKU renommé).
   const stale = p.listings.filter((l) => !currentSkus.has(l.skuCode) && isOnDepop(l)).map((l) => l.skuCode);
 
-  const connection = await deps.prisma.channelConnection.findUnique({
-    where: { organizationId_channel: { organizationId: p.organizationId, channel: "DEPOP" } },
-  });
+  const connection = await findConnection(deps, p.organizationId, "DEPOP");
   if (!connection) return markAll(deps, p, [...currentSkus], "not_connected", null);
 
   let token: string;
@@ -262,9 +200,7 @@ async function removeSkus(
 /** Fiche supprimée dans OmniList : on retire ses annonces Depop. */
 export async function removeFromDepop(deps: ChannelDeps, organizationId: string, skus: string[]) {
   if (skus.length === 0) return;
-  const connection = await deps.prisma.channelConnection.findUnique({
-    where: { organizationId_channel: { organizationId, channel: "DEPOP" } },
-  });
+  const connection = await findConnection(deps, organizationId, "DEPOP");
   if (!connection) return;
   let token: string;
   try {

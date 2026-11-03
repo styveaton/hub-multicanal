@@ -66,7 +66,8 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 
 ## Sprint 4 : ce qui reste
 
-- [ ] **DEV** : brancher eBay, Etsy, Shopify… sur le même moteur (import de leurs commandes, mise à jour du stock)
+- [x] **DEV** : Shopify et WooCommerce branchés sur le même moteur (publication, stock, commandes par webhook et relevé)
+- [ ] **DEV** : brancher eBay et Etsy dès que les comptes développeur sont validés
 - [ ] **DEV** : expédition des commandes Depop depuis OmniList (`mark-as-shipped`)
 - [ ] **QA** : mesurer le taux de doubles ventes en bêta (objectif < 1 %) à partir du journal (`OVERSOLD`)
 - [ ] **DESIGN** : maquettes définitives des écrans Stock, Journal et Commandes

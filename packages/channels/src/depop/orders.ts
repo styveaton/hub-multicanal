@@ -1,6 +1,7 @@
 import type { ChannelConnection, OrderStatus } from "@hub/db";
 import { recordOrder, type OrderInput, type StockChange } from "../inventory.js";
-import { NotConnectedError, depopAccessToken, type ChannelDeps } from "../publish.js";
+import { NotConnectedError, type ChannelDeps } from "../listing.js";
+import { depopAccessToken } from "../publish.js";
 import type { DepopOrder, DepopOrderStatus } from "./client.js";
 
 /** Statuts Depop → statuts OmniList. */

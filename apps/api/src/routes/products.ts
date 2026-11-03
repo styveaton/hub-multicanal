@@ -160,6 +160,9 @@ function ruleOf(row: ChannelRow | undefined): PriceRule {
   return { mode: "BASE" };
 }
 
+/** Canaux où la catégorie n'est pas exigée pour publier. */
+const CATEGORY_OPTIONAL: ReadonlySet<Channel> = new Set(["SHOPIFY", "WOOCOMMERCE"]);
+
 function serializeChannel(p: ProductWithRelations, channel: Channel) {
   const row = p.channels.find((c) => c.channel === channel);
   const rule = ruleOf(row);
@@ -175,7 +178,8 @@ function serializeChannel(p: ProductWithRelations, channel: Channel) {
     if (effectiveTitle.length > CHANNEL_TITLE_MAX[channel]) {
       warnings.push({ code: "title_too_long", length: effectiveTitle.length, max: CHANNEL_TITLE_MAX[channel] });
     }
-    if (enabled && !row?.category) warnings.push({ code: "category_missing" });
+    // Shopify (type de produit) et WooCommerce (étiquette) : catégorie facultative.
+    if (enabled && !row?.category && !CATEGORY_OPTIONAL.has(channel)) warnings.push({ code: "category_missing" });
   }
   return {
     channel,
@@ -534,7 +538,9 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
     });
     if (!connection) throw new HttpError(409, "channel_not_connected");
     if (connection.status !== "CONNECTED") throw new HttpError(409, "channel_needs_reauth");
-    if (!(connection.settings as { shipFromState?: string } | null)?.shipFromState) throw new HttpError(409, "ship_from_missing");
+    if (channel === "DEPOP" && !(connection.settings as { shipFromState?: string } | null)?.shipFromState) {
+      throw new HttpError(409, "ship_from_missing");
+    }
 
     const settings = serializeChannel(product, channel);
     if (settings.warnings.length > 0) throw new HttpError(400, "listing_incomplete", { warnings: settings.warnings });

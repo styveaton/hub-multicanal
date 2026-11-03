@@ -46,10 +46,18 @@ Ces canaux sont déjà dans l'application (onglets de la fiche produit). La publ
 - [ ] Demander l'accès **commercial** (l'accès personnel ne sert qu'à sa propre boutique)
 - [ ] Reporter `ETSY_API_KEY` (keystring) et le secret partagé
 
-**Shopify**
-- [ ] Créer un compte Shopify Partner (partners.shopify.com) et une application publique
-- [ ] Reporter `SHOPIFY_API_KEY` et `SHOPIFY_API_SECRET`, configurer l'URL de redirection OAuth
+**Shopify** (intégration codée et testée contre un faux Shopify, `SHOPIFY_ENV=fake`)
+- [ ] Créer un compte Shopify Partner (partners.shopify.com), puis une application publique et une boutique de développement pour essayer
+- [ ] Reporter le Client ID et le Client secret dans `SHOPIFY_CLIENT_ID` / `SHOPIFY_CLIENT_SECRET`, passer `SHOPIFY_ENV=live`
+- [ ] URL de redirection autorisée : `<WEB_URL>/api/channels/shopify/callback` ; scopes : `read_products, write_products, read_inventory, write_inventory, read_orders, read_locations`
+- [ ] Webhooks RGPD obligatoires (customers/data_request, customers/redact, shop/redact) : `<PUBLIC_API_URL>/webhooks/shopify/compliance`
+- [ ] Commandes de plus de 60 jours : demander le scope `read_all_orders` (inutile au lancement)
 - [ ] Passer la revue de l'App Store Shopify avant d'ouvrir l'app à tous les marchands
+
+**WooCommerce** (intégration codée et testée contre un faux WooCommerce, `WOO_ENV=fake`)
+- Aucun compte développeur : chaque marchand crée ses clés dans WordPress (WooCommerce › Réglages › Avancé › API REST, droits Lecture/Écriture) et les colle dans OmniList
+- [ ] Passer `WOO_ENV=live` en staging et production ; le site du marchand doit être en HTTPS
+- [ ] Webhooks de commandes : enregistrés automatiquement si `PUBLIC_API_URL` est en HTTPS
 
 ## 7. Depop : accès partenaire à la Selling API (premier canal branché)
 L'intégration est codée et testée contre un faux Depop (`DEPOP_ENV=fake` en local). Pour publier pour de vrai :

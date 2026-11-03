@@ -1,17 +1,36 @@
-import type { Channel, PrismaClient } from "@hub/db";
+import type { Channel, ChannelConnection, PrismaClient } from "@hub/db";
 import { pollDepopOrders } from "./depop/orders.js";
-import { publishToDepop, removeFromDepop, type ChannelDeps } from "./publish.js";
+import type { ChannelDeps } from "./listing.js";
+import { publishToDepop, removeFromDepop } from "./publish.js";
+import { pollShopifyOrders, publishToShopify, removeFromShopify } from "./shopify/sync.js";
+import { pollWooOrders, publishToWoo, removeFromWoo } from "./woocommerce/sync.js";
 
 /** File BullMQ des synchronisations de canaux. */
 export const CHANNEL_QUEUE = "channel-sync";
 
 /** Canaux branchés de bout en bout (publication, stock, commandes). */
-export const PUBLISHABLE_CHANNELS: readonly Channel[] = ["DEPOP"];
+export const PUBLISHABLE_CHANNELS: readonly Channel[] = ["DEPOP", "SHOPIFY", "WOOCOMMERCE"];
+
+/** Ce que chaque canal branché sait faire. */
+const HANDLERS: Partial<
+  Record<
+    Channel,
+    {
+      publish: (deps: ChannelDeps, productId: string) => Promise<void>;
+      remove: (deps: ChannelDeps, organizationId: string, skus: string[]) => Promise<void>;
+      poll: (deps: ChannelDeps, connection: ChannelConnection) => Promise<string[]>;
+    }
+  >
+> = {
+  DEPOP: { publish: publishToDepop, remove: removeFromDepop, poll: pollDepopOrders },
+  SHOPIFY: { publish: publishToShopify, remove: removeFromShopify, poll: pollShopifyOrders },
+  WOOCOMMERCE: { publish: publishToWoo, remove: removeFromWoo, poll: pollWooOrders },
+};
 
 export type ChannelJob =
   | { name: "publish"; data: { productId: string; channel: Channel } }
   | { name: "remove"; data: { organizationId: string; channel: Channel; skus: string[] } }
-  // Relevé de secours des commandes, planifié toutes les 2 minutes.
+  // Relevé de secours des commandes de tous les canaux branchés, planifié.
   | { name: "orders:poll"; data: Record<string, never> };
 
 /** Options d'envoi : priorité haute pour les mises à jour de stock (anti double vente). */
@@ -49,18 +68,22 @@ export async function propagateStock(deps: { prisma: PrismaClient; enqueue: Enqu
 
 export async function processChannelJob(deps: ChannelDeps & { enqueue: Enqueue }, job: ChannelJob): Promise<void> {
   if (job.name === "orders:poll") {
-    const connections = await deps.prisma.channelConnection.findMany({ where: { channel: "DEPOP", status: "CONNECTED" } });
+    const connections = await deps.prisma.channelConnection.findMany({
+      where: { channel: { in: [...PUBLISHABLE_CHANNELS] }, status: "CONNECTED" },
+    });
     for (const connection of connections) {
       // Une boutique en erreur ne bloque pas les autres.
       try {
-        await propagateStock(deps, await pollDepopOrders(deps, connection));
+        const poll = HANDLERS[connection.channel]?.poll;
+        if (poll) await propagateStock(deps, await poll(deps, connection));
       } catch (err) {
-        console.error(`[orders:poll] boutique ${connection.organizationId} : ${(err as Error).message}`);
+        console.error(`[orders:poll] ${connection.channel} boutique ${connection.organizationId} : ${(err as Error).message}`);
       }
     }
     return;
   }
-  if (job.data.channel !== "DEPOP") return; // autres canaux : pas encore branchés
-  if (job.name === "publish") return publishToDepop(deps, job.data.productId);
-  return removeFromDepop(deps, job.data.organizationId, job.data.skus);
+  const handler = HANDLERS[job.data.channel];
+  if (!handler) return; // canal pas encore branché
+  if (job.name === "publish") return handler.publish(deps, job.data.productId);
+  return handler.remove(deps, job.data.organizationId, job.data.skus);
 }

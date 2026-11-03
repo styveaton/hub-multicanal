@@ -6,7 +6,8 @@ import { CHANNEL_INTEGRATION, FEE_NOTES, PERCENT_BPS_MAX, PERCENT_BPS_MIN, apply
 import { Alert } from "../Alert";
 import { useI18n } from "../../i18n/I18nProvider";
 import { api, centsToInput, parseMoney, type ChannelSettings, type ChannelWarning, type ProductDetail } from "../../lib/api";
-import { DepopFields, DepopListingCard, depopDetailsFrom, depopFormFrom } from "./DepopFields";
+import { DepopFields, depopDetailsFrom, depopFormFrom } from "./DepopFields";
+import { ListingCard } from "./ListingCard";
 
 type PriceMode = PriceRule["mode"];
 
@@ -34,6 +35,8 @@ export function ChannelPanel({
   const [saved, setSaved] = useState(false);
   const [pending, setPending] = useState(false);
   const isDepop = settings.channel === "DEPOP";
+  const isShopify = settings.channel === "SHOPIFY";
+  const isWoo = settings.channel === "WOOCOMMERCE";
   const [depopForm, setDepopForm] = useState(() => depopFormFrom(settings.details));
   const [publishing, setPublishing] = useState(false);
   const [notConnected, setNotConnected] = useState(false);
@@ -136,7 +139,11 @@ export function ChannelPanel({
             <p className="muted">
               {isDepop
                 ? c.depop.hint
-                : CHANNEL_INTEGRATION[settings.channel] === "assisted"
+                : isShopify
+                  ? c.shopifyHint
+                  : isWoo
+                    ? c.wooHint
+                    : CHANNEL_INTEGRATION[settings.channel] === "assisted"
                   ? c.publishHintAssisted(label)
                   : c.publishHint(label)}
             </p>
@@ -162,9 +169,20 @@ export function ChannelPanel({
             </span>
           </label>
           <label className="field">
-            {c.category(label)}
-            <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={c.categoryPlaceholder} />
-            <span className="field-hint">{c.categoryHint}</span>
+            {isShopify ? c.categoryShopify : isWoo ? c.categoryWoo : c.category(label)}
+            {(isShopify || isWoo) && (
+              <>
+                {" "}
+                <span className="field-optional">{t.common.optional}</span>
+              </>
+            )}
+            <input
+              className="input"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder={isShopify || isWoo ? c.categoryPlaceholderShopify : c.categoryPlaceholder}
+            />
+            <span className="field-hint">{isShopify || isWoo ? c.categoryOptionalHint : c.categoryHint}</span>
           </label>
             </>
           )}
@@ -214,8 +232,10 @@ export function ChannelPanel({
         </fieldset>
       </section>
 
-      {isDepop && settings.publishable && (
-        <DepopListingCard
+      {settings.publishable && (
+        <ListingCard
+          channel={settings.channel}
+          label={label}
           listings={settings.listings}
           pending={publishing}
           canPublish={!pending}

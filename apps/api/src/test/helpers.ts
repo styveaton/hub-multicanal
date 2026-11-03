@@ -1,5 +1,5 @@
 import { prisma } from "@hub/db";
-import { FakeDepop, createDepopClient, loadChannelConfig, type ChannelDeps } from "@hub/channels";
+import { FakeDepop, FakeShopify, FakeWoo, createDepopClient, createShopifyClient, createWooClient, loadChannelConfig, type ChannelDeps } from "@hub/channels";
 import { buildApp } from "../app.js";
 import { loadEnv } from "../env.js";
 import { MemoryMailer } from "../lib/mailer.js";
@@ -17,6 +17,8 @@ export function createTestApp() {
   const storage = new MemoryStorage();
   const queue = new MemoryJobQueue();
   const fakeDepop = new FakeDepop();
+  const fakeShopify = new FakeShopify();
+  const fakeWoo = new FakeWoo();
   const config = loadChannelConfig({
     APP_ENV: "local",
     NODE_ENV: "test",
@@ -27,15 +29,17 @@ export function createTestApp() {
   // Les tests vérifient aussi l'enregistrement et la réception des webhooks.
   config.webhooksEnabled = true;
   const depop = createDepopClient(config.depop, fakeDepop.fetch);
+  const shopify = createShopifyClient(config.shopify, fakeShopify.fetch);
+  const woo = createWooClient(config.woo, fakeWoo.fetch);
   const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: TEST_WEB_URL }), {
     prisma,
     mailer,
     storage,
-    channels: { config, depop, queue, fakeDepop },
+    channels: { config, depop, shopify, woo, queue, fakeDepop, fakeShopify, fakeWoo },
   });
   // Ce que reçoit le worker : les tests exécutent les jobs avec queue.drain(channelDeps).
-  const channelDeps: ChannelDeps = { prisma, cipher: config.cipher, media: config.media, depop };
-  return { app, mailer, storage, queue, fakeDepop, config, channelDeps };
+  const channelDeps: ChannelDeps = { prisma, cipher: config.cipher, media: config.media, depop, shopify, woo };
+  return { app, mailer, storage, queue, fakeDepop, fakeShopify, fakeWoo, config, channelDeps };
 }
 
 export async function resetDatabase() {

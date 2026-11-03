@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import { ZodError } from "zod";
 import { Prisma, type PrismaClient } from "@hub/db";
-import type { ChannelConfig, DepopClient, FakeDepop } from "@hub/channels";
+import type { ChannelConfig, DepopClient, FakeDepop, FakeShopify, FakeWoo, ShopifyClient, WooClient } from "@hub/channels";
 import type { Env } from "./env.js";
 import { HttpError } from "./lib/errors.js";
 import type { Mailer } from "./lib/mailer.js";
@@ -12,6 +12,8 @@ import { registerSessionAuth } from "./plugins/auth.js";
 import { authRoutes } from "./routes/auth.js";
 import { channelRoutes } from "./routes/channels.js";
 import { fakeDepopRoutes } from "./routes/fake-depop.js";
+import { fakeShopifyRoutes } from "./routes/fake-shopify.js";
+import { fakeWooRoutes } from "./routes/fake-woo.js";
 import { healthRoutes } from "./routes/health.js";
 import { invitationRoutes } from "./routes/invitations.js";
 import { orderRoutes } from "./routes/orders.js";
@@ -34,9 +36,13 @@ declare module "fastify" {
 export interface ChannelRuntime {
   config: ChannelConfig;
   depop: DepopClient;
+  shopify: ShopifyClient;
+  woo: WooClient;
   queue: JobQueue;
-  /** Faux Depop servi par l'API (DEPOP_ENV=fake, en local et dans les tests). */
+  /** Faux canaux servis par l'API (mode fake, en local et dans les tests). */
   fakeDepop?: FakeDepop;
+  fakeShopify?: FakeShopify;
+  fakeWoo?: FakeWoo;
 }
 
 export interface AppDeps {
@@ -76,6 +82,8 @@ export function buildApp(env: Env, deps: AppDeps) {
   app.register(publicPhotoRoutes, { prefix: "/public/photos" });
   app.register(webhookRoutes, { prefix: "/webhooks" });
   if (deps.channels.fakeDepop) app.register(fakeDepopRoutes, { prefix: "/dev/fake-depop" });
+  if (deps.channels.fakeShopify) app.register(fakeShopifyRoutes, { prefix: "/dev/fake-shopify" });
+  if (deps.channels.fakeWoo) app.register(fakeWooRoutes, { prefix: "/dev/fake-woo" });
 
   // Routes qui ont besoin de la session.
   app.register(async (scope) => {

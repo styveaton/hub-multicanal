@@ -138,6 +138,7 @@ describe("US4 : article unique", () => {
       ["WALMART", false],
       ["ETSY", false],
       ["SHOPIFY", false],
+      ["WOOCOMMERCE", false],
       ["FACEBOOK_MARKETPLACE", false],
       ["MERCARI", false],
       ["POSHMARK", false],

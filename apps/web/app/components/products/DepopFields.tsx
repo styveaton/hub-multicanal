@@ -1,7 +1,5 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Clock, ExternalLink, MinusCircle } from "lucide-react";
-import Link from "next/link";
 import { useMemo } from "react";
 import {
   DEPOP_DEPARTMENTS,
@@ -16,7 +14,7 @@ import {
   type DepopDetails,
 } from "@hub/shared";
 import { useI18n } from "../../i18n/I18nProvider";
-import type { Listing, ProductDetail } from "../../lib/api";
+import type { ProductDetail } from "../../lib/api";
 
 /** Valeurs saisies dans l'onglet Depop (les frais de port en texte, convertis à l'enregistrement). */
 export interface DepopForm {
@@ -162,72 +160,5 @@ export function DepopFields({ product, form, onChange }: { product: ProductDetai
         <span className="field-hint">{d.shippingHint}</span>
       </label>
     </>
-  );
-}
-
-const STATUS_ICON = { PENDING: Clock, LISTED: CheckCircle2, ERROR: AlertTriangle, REMOVED: MinusCircle } as const;
-
-/** État des annonces Depop (une par SKU) et bouton de publication. */
-export function DepopListingCard({
-  listings,
-  pending,
-  canPublish,
-  notConnected,
-  onPublish,
-}: {
-  listings: Listing[];
-  pending: boolean;
-  canPublish: boolean;
-  notConnected: boolean;
-  onPublish: () => void;
-}) {
-  const { t } = useI18n();
-  const d = t.channel.depop;
-  const live = listings.some((l) => l.status === "LISTED" || l.status === "PENDING");
-
-  return (
-    <section className="card">
-      <div className="card-header">
-        <div>
-          <h2>{d.listingTitle}</h2>
-          <p className="muted">{d.listingHint}</p>
-        </div>
-        <button type="button" className="btn" onClick={onPublish} disabled={pending || !canPublish}>
-          {pending ? d.publishing : live ? d.update : d.publish}
-        </button>
-      </div>
-
-      {notConnected && (
-        <p className="note note--warn">
-          <AlertTriangle size={16} aria-hidden /> {d.notConnected} <Link href="/channels">{d.goToChannels}</Link>
-        </p>
-      )}
-
-      {listings.length === 0 ? (
-        <p className="empty">{d.noListing}</p>
-      ) : (
-        <ul className="listing-status">
-          {listings.map((l) => {
-            const Icon = STATUS_ICON[l.status];
-            const reason = l.errorCode ? (d.errorCodes[l.errorCode] ?? l.errorMessage ?? l.errorCode) : null;
-            return (
-              <li key={l.sku} className={`listing-status--${l.status.toLowerCase()}`}>
-                <Icon size={16} aria-hidden />
-                <span className="listing-sku">{l.sku}</span>
-                <span className="listing-state">
-                  {d.status[l.status]}
-                  {reason && <small> · {reason}</small>}
-                </span>
-                {l.status === "LISTED" && l.externalUrl && (
-                  <a href={l.externalUrl} target="_blank" rel="noreferrer" className="listing-link">
-                    {d.view} <ExternalLink size={14} aria-hidden />
-                  </a>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
   );
 }
