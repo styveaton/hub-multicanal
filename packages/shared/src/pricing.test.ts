@@ -34,9 +34,9 @@ describe("aperçu des frais (US5)", () => {
 
   it("accepte des taux personnalisés", () => {
     const rates = {
-      EBAY: { percentBps: 1000, fixedCents: 0, note: "" },
-      AMAZON: { percentBps: 0, fixedCents: 0, note: "" },
-      TIKTOK_SHOP: { percentBps: 0, fixedCents: 0, note: "" },
+      EBAY: { percentBps: 1000, fixedCents: 0 },
+      AMAZON: { percentBps: 0, fixedCents: 0 },
+      TIKTOK_SHOP: { percentBps: 0, fixedCents: 0 },
     };
     expect(feePreview(5000, "EBAY", rates).netCents).toBe(4500);
   });

@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Alert } from "../components/Alert";
 import { AuthLayout } from "../components/AuthLayout";
+import { useI18n } from "../i18n/I18nProvider";
 import { api, type Me } from "../lib/api";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -33,35 +35,35 @@ export default function SignupPage() {
 
   return (
     <AuthLayout
-      title="Créer votre compte"
-      subtitle="Vous serez propriétaire de la boutique et pourrez inviter vos employés."
+      title={t.signup.title}
+      subtitle={t.signup.subtitle}
       footer={
         <>
-          Déjà un compte ? <Link href="/login">Se connecter</Link>
+          {t.signup.haveAccount} <Link href="/login">{t.signup.loginLink}</Link>
         </>
       }
     >
       <form className="form" onSubmit={onSubmit}>
         <label className="field">
-          Votre nom
+          {t.common.yourName}
           <input className="input" name="name" required autoComplete="name" />
         </label>
         <label className="field">
-          Nom de la boutique
+          {t.signup.storeName}
           <input className="input" name="organizationName" required autoComplete="organization" />
         </label>
         <label className="field">
-          Email
+          {t.common.email}
           <input className="input" name="email" type="email" required autoComplete="email" />
         </label>
         <label className="field">
-          Mot de passe
+          {t.common.password}
           <input className="input" name="password" type="password" required minLength={8} autoComplete="new-password" />
-          <span className="field-hint">8 caractères minimum</span>
+          <span className="field-hint">{t.common.minPassword}</span>
         </label>
         {error && <Alert kind="error">{error}</Alert>}
         <button className="btn btn--block" disabled={pending}>
-          {pending ? "Création…" : "Créer mon compte"}
+          {pending ? t.signup.pending : t.signup.submit}
         </button>
       </form>
     </AuthLayout>

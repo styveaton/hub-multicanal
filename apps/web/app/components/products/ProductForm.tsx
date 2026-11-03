@@ -4,15 +4,18 @@ import { Layers, Package } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { CHANNEL_TITLE_MAX } from "@hub/shared";
 import { Alert } from "../Alert";
-import { CONDITION_LABEL, api, centsToInput, parseMoney, type Condition, type Photo, type ProductDetail } from "../../lib/api";
+import { useI18n } from "../../i18n/I18nProvider";
+import { api, centsToInput, parseMoney, type Condition, type Photo, type ProductDetail } from "../../lib/api";
 import { PhotoUploader } from "./PhotoUploader";
 import { VariantsEditor, newVariantRow, type VariantRow } from "./VariantsEditor";
 
 type Mode = "SINGLE" | "VARIANTS";
 
-function initialVariants(product?: ProductDetail): { options: string[]; rows: VariantRow[] } {
+const CONDITIONS: Condition[] = ["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"];
+
+function initialVariants(defaultOption: string, product?: ProductDetail): { options: string[]; rows: VariantRow[] } {
   if (!product || product.mode !== "VARIANTS" || product.variants.length === 0) {
-    return { options: ["Taille"], rows: [newVariantRow(1)] };
+    return { options: [defaultOption], rows: [newVariantRow(1)] };
   }
   const options = Object.keys(product.variants[0]!.attributes);
   return {
@@ -30,6 +33,8 @@ function initialVariants(product?: ProductDetail): { options: string[]; rows: Va
 
 /** Fiche maître (US4) : création et modification. */
 export function ProductForm({ product, onSaved }: { product?: ProductDetail; onSaved: (p: ProductDetail) => void }) {
+  const { t } = useI18n();
+  const f = t.form;
   const [mode, setMode] = useState<Mode>(product?.mode ?? "SINGLE");
   const [title, setTitle] = useState(product?.title ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
@@ -38,7 +43,7 @@ export function ProductForm({ product, onSaved }: { product?: ProductDetail; onS
   const [sku, setSku] = useState(product?.sku ?? "");
   const [price, setPrice] = useState(centsToInput(product?.priceCents));
   const [photos, setPhotos] = useState<Photo[]>(product?.photos ?? []);
-  const init = initialVariants(product);
+  const init = initialVariants(f.defaultOption, product);
   const [options, setOptions] = useState(init.options);
   const [rows, setRows] = useState(init.rows);
   const [error, setError] = useState<string | null>(null);
@@ -46,22 +51,22 @@ export function ProductForm({ product, onSaved }: { product?: ProductDetail; onS
   const [pending, setPending] = useState(false);
 
   function buildBody(): object | string {
-    if (photos.length === 0) return "Ajoutez au moins 1 photo.";
+    if (photos.length === 0) return f.errors.photoRequired;
     const base = { title, description, brand: brand || null, condition, photoIds: photos.map((p) => p.id) };
     if (mode === "SINGLE") {
       const priceCents = parseMoney(price);
-      if (priceCents == null) return "Prix invalide : saisissez un montant supérieur à 0, ex. 19.99.";
+      if (priceCents == null) return f.errors.priceInvalid;
       return { ...base, mode, sku, priceCents };
     }
     const optionNames = options.map((o) => o.trim());
-    if (optionNames.some((o) => !o)) return "Donnez un nom à chaque option (ex. Taille, Couleur).";
-    if (new Set(optionNames.map((o) => o.toLowerCase())).size !== optionNames.length) return "Deux options portent le même nom.";
+    if (optionNames.some((o) => !o)) return f.errors.optionNameMissing;
+    if (new Set(optionNames.map((o) => o.toLowerCase())).size !== optionNames.length) return f.errors.optionDuplicate;
     const variants = [];
     for (const [i, row] of rows.entries()) {
       const priceCents = parseMoney(row.price);
-      if (priceCents == null) return `Variante ${i + 1} : prix invalide.`;
+      if (priceCents == null) return f.errors.variantPrice(i + 1);
       const quantity = Number(row.quantity);
-      if (!Number.isInteger(quantity) || quantity < 0) return `Variante ${i + 1} : quantité invalide.`;
+      if (!Number.isInteger(quantity) || quantity < 0) return f.errors.variantQuantity(i + 1);
       variants.push({
         id: row.id,
         sku: row.sku,
@@ -96,8 +101,8 @@ export function ProductForm({ product, onSaved }: { product?: ProductDetail; onS
       <section className="card">
         <div className="card-header">
           <div>
-            <h2>Photos</h2>
-            <p className="muted">De 1 à 12 photos, sur fond clair de préférence.</p>
+            <h2>{f.photos}</h2>
+            <p className="muted">{f.photosHint}</p>
           </div>
         </div>
         <PhotoUploader photos={photos} onChange={setPhotos} />
@@ -105,31 +110,31 @@ export function ProductForm({ product, onSaved }: { product?: ProductDetail; onS
 
       <section className="card">
         <div className="card-header">
-          <h2>Informations</h2>
+          <h2>{f.info}</h2>
         </div>
         <div className="form">
           <label className="field">
-            Titre
+            {f.title}
             <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} />
             <span className={`field-hint${title.length > ebayMax ? " field-hint--warn" : ""}`}>
-              {title.length}/200 · eBay limite à {ebayMax} caractères : au-delà, ajoutez un titre spécifique dans l&apos;onglet eBay.
+              {f.titleHint(title.length, ebayMax)}
             </span>
           </label>
           <label className="field">
-            Description
+            {f.description}
             <textarea className="input textarea" value={description} onChange={(e) => setDescription(e.target.value)} required maxLength={5000} rows={6} />
           </label>
           <div className="form-grid">
             <label className="field">
-              Marque <span className="field-optional">(facultatif)</span>
+              {f.brand} <span className="field-optional">{t.common.optional}</span>
               <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} maxLength={100} />
             </label>
             <label className="field">
-              État
+              {f.condition}
               <select className="input" value={condition} onChange={(e) => setCondition(e.target.value as Condition)}>
-                {Object.entries(CONDITION_LABEL).map(([value, label]) => (
+                {CONDITIONS.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {t.conditions[value]}
                   </option>
                 ))}
               </select>
@@ -141,23 +146,23 @@ export function ProductForm({ product, onSaved }: { product?: ProductDetail; onS
       <section className="card">
         <div className="card-header">
           <div>
-            <h2>Prix et stock</h2>
-            <p className="muted">Prix en dollars US. Les prix par canal se règlent dans les onglets des canaux.</p>
+            <h2>{f.priceStock}</h2>
+            <p className="muted">{f.priceStockHint}</p>
           </div>
         </div>
-        <div className="segmented" role="radiogroup" aria-label="Type de produit">
+        <div className="segmented" role="radiogroup" aria-label={f.productType}>
           <button type="button" role="radio" aria-checked={mode === "SINGLE"} className="segment" onClick={() => setMode("SINGLE")}>
             <Package size={18} aria-hidden />
             <span>
-              <strong>Article unique</strong>
-              <small>Quantité 1, ex. pièce d&apos;occasion</small>
+              <strong>{f.single}</strong>
+              <small>{f.singleHint}</small>
             </span>
           </button>
           <button type="button" role="radio" aria-checked={mode === "VARIANTS"} className="segment" onClick={() => setMode("VARIANTS")}>
             <Layers size={18} aria-hidden />
             <span>
-              <strong>Variantes</strong>
-              <small>Tailles, couleurs… avec stock par variante</small>
+              <strong>{f.variants}</strong>
+              <small>{f.variantsHint}</small>
             </span>
           </button>
         </div>
@@ -167,15 +172,15 @@ export function ProductForm({ product, onSaved }: { product?: ProductDetail; onS
             <label className="field">
               SKU
               <input className="input" value={sku} onChange={(e) => setSku(e.target.value)} required maxLength={50} placeholder="VESTE-001" />
-              <span className="field-hint">Référence unique dans votre boutique</span>
+              <span className="field-hint">{f.skuHint}</span>
             </label>
             <label className="field">
-              Prix ($)
+              {f.price}
               <input className="input" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} required placeholder="0.00" />
             </label>
             <div className="field">
-              Quantité
-              <span className="static-value">1 (article unique)</span>
+              {f.quantity}
+              <span className="static-value">{f.singleQuantity}</span>
             </div>
           </div>
         ) : (
@@ -187,9 +192,9 @@ export function ProductForm({ product, onSaved }: { product?: ProductDetail; onS
 
       <div className="form-footer">
         {error && <Alert kind="error">{error}</Alert>}
-        {saved && !error && <Alert kind="success">Fiche enregistrée.</Alert>}
+        {saved && !error && <Alert kind="success">{f.saved}</Alert>}
         <button className="btn" disabled={pending}>
-          {pending ? "Enregistrement…" : product ? "Enregistrer la fiche" : "Créer le produit"}
+          {pending ? t.common.saving : product ? f.save : f.create}
         </button>
       </div>
     </form>

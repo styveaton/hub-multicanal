@@ -114,6 +114,24 @@ describe("invitation par email", () => {
     expect(list.json()).toHaveLength(1);
   });
 
+  it("l'email suit la langue de la personne qui invite (navigateur, puis choix sur le site)", async () => {
+    const owner = await signupOwner();
+    const send = (headers: Record<string, string>, cookies: Record<string, string> = owner) =>
+      app.inject({ method: "POST", url: "/invitations", cookies, headers, payload: { email: EMPLOYEE.email } });
+
+    await send({ "accept-language": "fr-FR,fr;q=0.9" });
+    expect(mailer.sent.at(-1)!.subject).toContain("vous invite à rejoindre");
+    expect(mailer.sent.at(-1)!.html).toContain('lang="fr"');
+
+    await send({ "accept-language": "en-US,en;q=0.9" });
+    expect(mailer.sent.at(-1)!.subject).toContain("invited you to join");
+
+    // Le choix fait sur le site (cookie) prime sur la langue du navigateur.
+    await send({ "accept-language": "fr-FR" }, { ...owner, omnilist_lang: "en" });
+    expect(mailer.sent.at(-1)!.subject).toContain("invited you to join");
+    expect(mailer.sent.at(-1)!.html).toContain('lang="en"');
+  });
+
   it("la page d'acceptation peut afficher l'organisation et l'email", async () => {
     const owner = await signupOwner();
     await invite(owner);

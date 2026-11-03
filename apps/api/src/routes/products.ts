@@ -6,7 +6,6 @@ import {
   CHANNEL_LABEL,
   CHANNEL_TITLE_MAX,
   DEFAULT_CURRENCY,
-  INDICATIVE_FEES,
   PERCENT_BPS_MAX,
   PERCENT_BPS_MIN,
   applyPriceRule,
@@ -25,16 +24,16 @@ import { photoUrl } from "./photos.js";
 export const MAX_PHOTOS = 12;
 export const MAX_VARIANTS = 100;
 
-const Money = z.number().int("Montant en centimes entiers").min(1, "Le prix doit être supérieur à 0").max(100_000_000);
+const Money = z.number().int("price_invalid").min(1, "price_invalid").max(100_000_000);
 const SkuCode = z
   .string()
   .trim()
   .min(1, "SKU obligatoire")
   .max(50)
-  .regex(/^[A-Za-z0-9._-]+$/, "SKU : lettres, chiffres, point, tiret ou souligné uniquement");
+  .regex(/^[A-Za-z0-9._-]+$/, "sku_format");
 
 const Attributes = z
-  .record(z.string().trim().min(1).max(30), z.string().trim().min(1, "Valeur obligatoire").max(50))
+  .record(z.string().trim().min(1).max(30), z.string().trim().min(1, "value_required").max(50))
   .refine((a) => Object.keys(a).length >= 1 && Object.keys(a).length <= 3, "1 à 3 options par variante (ex. Taille, Couleur)");
 
 const VariantInput = z.object({
@@ -42,19 +41,19 @@ const VariantInput = z.object({
   sku: SkuCode,
   attributes: Attributes,
   priceCents: Money,
-  quantity: z.number().int().min(0, "Quantité positive").max(100_000),
+  quantity: z.number().int().min(0, "quantity_invalid").max(100_000),
 });
 
 const ProductBase = {
-  title: z.string().trim().min(1, "Titre obligatoire").max(200),
-  description: z.string().trim().min(1, "Description obligatoire").max(5000),
+  title: z.string().trim().min(1, "title_required").max(200),
+  description: z.string().trim().min(1, "description_required").max(5000),
   brand: z.string().trim().max(100).nullish(),
   condition: z.enum(["NEW", "USED_LIKE_NEW", "USED_GOOD", "USED_FAIR"]).default("NEW"),
   photoIds: z
     .array(z.string().min(1))
-    .min(1, "Au moins 1 photo")
+    .min(1, "photo_required")
     .max(MAX_PHOTOS, `${MAX_PHOTOS} photos maximum`)
-    .refine((ids) => new Set(ids).size === ids.length, "Photo en double"),
+    .refine((ids) => new Set(ids).size === ids.length, "photo_duplicate"),
 };
 
 export const ProductInput = z
@@ -63,7 +62,7 @@ export const ProductInput = z
     z.object({
       ...ProductBase,
       mode: z.literal("VARIANTS"),
-      variants: z.array(VariantInput).min(1, "Au moins 1 variante").max(MAX_VARIANTS),
+      variants: z.array(VariantInput).min(1, "variant_required").max(MAX_VARIANTS),
     }),
   ])
   .superRefine((p, ctx) => {
@@ -74,13 +73,13 @@ export const ProductInput = z
     const combos = new Set<string>();
     p.variants.forEach((v, i) => {
       if (JSON.stringify(Object.keys(v.attributes).sort()) !== optionNames) {
-        ctx.addIssue({ code: "custom", path: ["variants", i, "attributes"], message: "Toutes les variantes doivent avoir les mêmes options" });
+        ctx.addIssue({ code: "custom", path: ["variants", i, "attributes"], message: "variant_options_mismatch" });
       }
       const sku = v.sku.toUpperCase();
-      if (skus.has(sku)) ctx.addIssue({ code: "custom", path: ["variants", i, "sku"], message: "SKU en double" });
+      if (skus.has(sku)) ctx.addIssue({ code: "custom", path: ["variants", i, "sku"], message: "sku_duplicate" });
       skus.add(sku);
       const combo = JSON.stringify(Object.entries(v.attributes).map(([k, val]) => [k, val.toLowerCase()]).sort());
-      if (combos.has(combo)) ctx.addIssue({ code: "custom", path: ["variants", i, "attributes"], message: "Variante en double" });
+      if (combos.has(combo)) ctx.addIssue({ code: "custom", path: ["variants", i, "attributes"], message: "variant_duplicate" });
       combos.add(combo);
     });
   });
@@ -138,16 +137,12 @@ function serializeChannel(p: ProductWithRelations, channel: Channel) {
   const rule = ruleOf(row);
   const effectiveTitle = row?.title || p.title;
   const enabled = row?.enabled ?? true;
-  const warnings: Array<{ code: string; message: string }> = [];
+  // Codes seulement : le front affiche le texte dans la langue de l'utilisateur.
+  const warnings: Array<{ code: "title_too_long"; length: number; max: number } | { code: "category_missing" }> = [];
   if (effectiveTitle.length > CHANNEL_TITLE_MAX[channel]) {
-    warnings.push({
-      code: "title_too_long",
-      message: `Titre trop long pour ${CHANNEL_LABEL[channel]} (${effectiveTitle.length}/${CHANNEL_TITLE_MAX[channel]} caractères) : ajoutez un titre spécifique.`,
-    });
+    warnings.push({ code: "title_too_long", length: effectiveTitle.length, max: CHANNEL_TITLE_MAX[channel] });
   }
-  if (enabled && !row?.category) {
-    warnings.push({ code: "category_missing", message: `Catégorie ${CHANNEL_LABEL[channel]} à renseigner avant la publication.` });
-  }
+  if (enabled && !row?.category) warnings.push({ code: "category_missing" });
   return {
     channel,
     label: CHANNEL_LABEL[channel],
@@ -157,7 +152,6 @@ function serializeChannel(p: ProductWithRelations, channel: Channel) {
     titleMax: CHANNEL_TITLE_MAX[channel],
     category: row?.category ?? null,
     price: rule,
-    feeNote: INDICATIVE_FEES[channel].note,
     // Aperçu indicatif des frais pour chaque article vendable.
     preview: sellableItems(p).map((item) => ({
       variantId: item.variantId,

@@ -5,7 +5,7 @@ import { buildMe } from "../lib/me.js";
 import { SESSION_COOKIE, requireAuth, startSession } from "../plugins/auth.js";
 
 export const Email = z.string().trim().toLowerCase().email().max(254);
-export const NewPassword = z.string().min(8, "8 caractères minimum").max(200);
+export const NewPassword = z.string().min(8, "password_too_short").max(200);
 export const PersonName = z.string().trim().min(1).max(100);
 
 const Signup = z.object({

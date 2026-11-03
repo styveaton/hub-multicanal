@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
+import { useI18n } from "../../i18n/I18nProvider";
 
 export interface VariantRow {
   key: string; // clé React stable
@@ -35,6 +36,7 @@ export function VariantsEditor({
   onOptionsChange: (options: string[]) => void;
   onRowsChange: (rows: VariantRow[]) => void;
 }) {
+  const v = useI18n().t.variants;
   const update = (key: string, patch: Partial<VariantRow>) => onRowsChange(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
   function addOption() {
@@ -52,17 +54,17 @@ export function VariantsEditor({
       <div className="variant-options">
         {options.map((name, i) => (
           <label key={i} className="field">
-            Option {i + 1}
+            {v.option(i + 1)}
             <span className="input-group">
               <input
                 className="input"
                 value={name}
-                placeholder={i === 0 ? "Taille" : i === 1 ? "Couleur" : "Matière"}
+                placeholder={v.optionPlaceholders[i]}
                 onChange={(e) => onOptionsChange(options.map((o, j) => (j === i ? e.target.value : o)))}
                 required
               />
               {options.length > 1 && (
-                <button type="button" className="icon-btn icon-btn--light" onClick={() => removeOption(i)} aria-label={`Supprimer l'option ${i + 1}`}>
+                <button type="button" className="icon-btn icon-btn--light" onClick={() => removeOption(i)} aria-label={v.removeOption(i + 1)}>
                   <Trash2 size={16} />
                 </button>
               )}
@@ -71,7 +73,7 @@ export function VariantsEditor({
         ))}
         {options.length < 3 && (
           <button type="button" className="btn btn--secondary btn--sm" onClick={addOption}>
-            <Plus size={16} aria-hidden /> Option
+            <Plus size={16} aria-hidden /> {v.addOption}
           </button>
         )}
       </div>
@@ -82,14 +84,14 @@ export function VariantsEditor({
             <tr>
               {options.map((name, i) => (
                 <th key={i} scope="col">
-                  {name || `Option ${i + 1}`}
+                  {name || v.option(i + 1)}
                 </th>
               ))}
               <th scope="col">SKU</th>
-              <th scope="col">Prix ($)</th>
-              <th scope="col">Quantité</th>
+              <th scope="col">{v.price}</th>
+              <th scope="col">{v.quantity}</th>
               <th scope="col">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">{v.actions}</span>
               </th>
             </tr>
           </thead>
@@ -101,7 +103,7 @@ export function VariantsEditor({
                     <input
                       className="input input--sm"
                       value={row.values[i] ?? ""}
-                      aria-label={`${name || `Option ${i + 1}`}, variante ${r + 1}`}
+                      aria-label={v.cell(name || v.option(i + 1), r + 1)}
                       // Reconstruit une valeur par option, même si la ligne en avait moins.
                       onChange={(e) => update(row.key, { values: options.map((_, j) => (j === i ? e.target.value : (row.values[j] ?? ""))) })}
                       required
@@ -112,7 +114,7 @@ export function VariantsEditor({
                   <input
                     className="input input--sm"
                     value={row.sku}
-                    aria-label={`SKU, variante ${r + 1}`}
+                    aria-label={v.cell("SKU", r + 1)}
                     onChange={(e) => update(row.key, { sku: e.target.value })}
                     required
                   />
@@ -123,7 +125,7 @@ export function VariantsEditor({
                     inputMode="decimal"
                     value={row.price}
                     placeholder="0.00"
-                    aria-label={`Prix, variante ${r + 1}`}
+                    aria-label={v.cell(v.price, r + 1)}
                     onChange={(e) => update(row.key, { price: e.target.value })}
                     required
                   />
@@ -135,7 +137,7 @@ export function VariantsEditor({
                     min={0}
                     step={1}
                     value={row.quantity}
-                    aria-label={`Quantité, variante ${r + 1}`}
+                    aria-label={v.cell(v.quantity, r + 1)}
                     onChange={(e) => update(row.key, { quantity: e.target.value })}
                     required
                   />
@@ -146,7 +148,7 @@ export function VariantsEditor({
                     className="icon-btn icon-btn--light"
                     onClick={() => onRowsChange(rows.filter((x) => x.key !== row.key))}
                     disabled={rows.length === 1}
-                    aria-label={`Supprimer la variante ${r + 1}`}
+                    aria-label={v.remove(r + 1)}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -157,7 +159,7 @@ export function VariantsEditor({
         </table>
       </div>
       <button type="button" className="btn btn--secondary btn--sm" onClick={() => onRowsChange([...rows, newVariantRow(options.length)])}>
-        <Plus size={16} aria-hidden /> Ajouter une variante
+        <Plus size={16} aria-hidden /> {v.add}
       </button>
     </div>
   );

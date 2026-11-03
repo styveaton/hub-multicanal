@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Invitation } from "@hub/db";
 import { hashPassword, hashToken, newToken, verifyPassword } from "../lib/crypto.js";
 import { HttpError } from "../lib/errors.js";
+import { requestLocale } from "../lib/locale.js";
 import { invitationEmail } from "../lib/mailer.js";
 import { buildMe } from "../lib/me.js";
 import { requirePermission, startSession } from "../plugins/auth.js";
@@ -71,6 +72,7 @@ export const invitationRoutes: FastifyPluginAsync = async (app) => {
           inviterName: invitation.invitedBy.name ?? invitation.invitedBy.email,
           link: link.toString(),
           expiresAt,
+          locale: requestLocale(request),
         }),
       );
     } catch (err) {

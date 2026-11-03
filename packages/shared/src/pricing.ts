@@ -4,6 +4,8 @@
  * Tous les montants sont en centimes (entiers) pour éviter les erreurs d'arrondi.
  */
 
+import type { Locale } from "./locale.js";
+
 export const CHANNELS = ["EBAY", "AMAZON", "TIKTOK_SHOP"] as const;
 export type Channel = (typeof CHANNELS)[number];
 
@@ -48,8 +50,6 @@ export interface FeeRate {
   percentBps: number;
   /** Frais fixes par commande, en centimes. */
   fixedCents: number;
-  /** Explication affichée à côté de l'aperçu. */
-  note: string;
 }
 
 /**
@@ -57,20 +57,24 @@ export interface FeeRate {
  * Ils servent uniquement à l'aperçu ; les frais réels sont fixés par chaque canal.
  */
 export const INDICATIVE_FEES: Record<Channel, FeeRate> = {
+  EBAY: { percentBps: 1325, fixedCents: 40 },
+  AMAZON: { percentBps: 1500, fixedCents: 0 },
+  TIKTOK_SHOP: { percentBps: 800, fixedCents: 0 },
+};
+
+/** Explication des taux, affichée à côté de l'aperçu. */
+export const FEE_NOTES: Record<Channel, Record<Locale, string>> = {
   EBAY: {
-    percentBps: 1325,
-    fixedCents: 40,
-    note: "Frais de vente finale ~13,25 % + 0,40 $ par commande (la plupart des catégories, États-Unis).",
+    fr: "Frais de vente finale ~13,25 % + 0,40 $ par commande (la plupart des catégories, États-Unis).",
+    en: "Final value fee ~13.25% + $0.40 per order (most categories, United States).",
   },
   AMAZON: {
-    percentBps: 1500,
-    fixedCents: 0,
-    note: "Commission de parrainage ~15 % (varie de 8 à 17 % selon la catégorie), hors abonnement vendeur.",
+    fr: "Commission de parrainage ~15 % (varie de 8 à 17 % selon la catégorie), hors abonnement vendeur.",
+    en: "Referral fee ~15% (8 to 17% depending on the category), excluding the seller subscription.",
   },
   TIKTOK_SHOP: {
-    percentBps: 800,
-    fixedCents: 0,
-    note: "Commission ~8 % par commande (États-Unis), hors frais de paiement éventuels.",
+    fr: "Commission ~8 % par commande (États-Unis), hors frais de paiement éventuels.",
+    en: "Commission ~8% per order (United States), excluding any payment processing fees.",
   },
 };
 
@@ -87,7 +91,7 @@ export function feePreview(priceCents: number, channel: Channel, rates: Record<C
   return { priceCents, feeCents, netCents: priceCents - feeCents };
 }
 
-/** Formate un montant en centimes, ex. 1999 → « 19,99 $US » (fr-FR). */
+/** Formate un montant en centimes, ex. 1999 → « 19,99 $US » (fr-FR) ou « $19.99 » (en-US). */
 export function formatMoney(cents: number, currency: string = DEFAULT_CURRENCY, locale = "fr-FR"): string {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(cents / 100);
 }

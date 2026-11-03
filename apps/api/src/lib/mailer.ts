@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { INTL_LOCALE, type Locale } from "@hub/shared";
 import type { Env } from "../env.js";
 
 export interface MailMessage {
@@ -38,41 +39,63 @@ export class MemoryMailer implements Mailer {
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
+const INVITATION_TEXT = {
+  fr: {
+    subject: (inviter: string, org: string) => `${inviter} vous invite à rejoindre ${org} sur OmniList`,
+    intro: (inviter: string, org: string) => `${inviter} vous invite à rejoindre ${org} sur OmniList.`,
+    acceptLine: (link: string) => `Acceptez l'invitation : ${link}`,
+    expires: (date: string) => `Ce lien expire le ${date}.`,
+    heading: (org: string) => `Rejoignez ${org}`,
+    body: (inviter: string, org: string) =>
+      `${inviter} vous invite à rejoindre l'équipe de ${org} sur OmniList, pour gérer les annonces et le stock de la boutique.`,
+    button: "Accepter l'invitation",
+    fallback: (date: string) => `Ce lien expire le ${date}. Si le bouton ne fonctionne pas, copiez cette adresse :`,
+  },
+  en: {
+    subject: (inviter: string, org: string) => `${inviter} invited you to join ${org} on OmniList`,
+    intro: (inviter: string, org: string) => `${inviter} invited you to join ${org} on OmniList.`,
+    acceptLine: (link: string) => `Accept the invitation: ${link}`,
+    expires: (date: string) => `This link expires on ${date}.`,
+    heading: (org: string) => `Join ${org}`,
+    body: (inviter: string, org: string) =>
+      `${inviter} invited you to join the ${org} team on OmniList, to manage the store's listings and inventory.`,
+    button: "Accept the invitation",
+    fallback: (date: string) => `This link expires on ${date}. If the button doesn't work, copy this address:`,
+  },
+} satisfies Record<Locale, unknown>;
+
+/** Email d'invitation, dans la langue de la personne qui invite. */
 export function invitationEmail(params: {
   to: string;
   organizationName: string;
   inviterName: string;
   link: string;
   expiresAt: Date;
+  locale: Locale;
 }): MailMessage {
-  const { to, organizationName, inviterName, link, expiresAt } = params;
-  const expires = expiresAt.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const { to, organizationName, inviterName, link, expiresAt, locale } = params;
+  const t = INVITATION_TEXT[locale];
+  const expires = expiresAt.toLocaleDateString(INTL_LOCALE[locale], { day: "numeric", month: "long", year: "numeric" });
   const inviter = escapeHtml(inviterName);
   const org = escapeHtml(organizationName);
   const href = escapeHtml(link);
   return {
     to,
-    subject: `${inviterName} vous invite à rejoindre ${organizationName} sur OmniList`,
-    text: [
-      `${inviterName} vous invite à rejoindre ${organizationName} sur OmniList.`,
-      "",
-      `Acceptez l'invitation : ${link}`,
-      "",
-      `Ce lien expire le ${expires}.`,
-      "",
-      "OmniList · List once. Sync everywhere.",
-    ].join("\n"),
-    html: brandedEmail(`
-      <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:${BRAND.navy};">Rejoignez ${org}</h1>
+    subject: t.subject(inviterName, organizationName),
+    text: [t.intro(inviterName, organizationName), "", t.acceptLine(link), "", t.expires(expires), "", "OmniList · List once. Sync everywhere."].join("\n"),
+    html: brandedEmail(
+      locale,
+      `
+      <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:${BRAND.navy};">${t.heading(org)}</h1>
       <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:${BRAND.muted};">
-        ${inviter} vous invite à rejoindre l'équipe de <strong style="color:${BRAND.navy};">${org}</strong> sur OmniList,
-        pour gérer les annonces et le stock de la boutique.
+        ${t.body(inviter, `<strong style="color:${BRAND.navy};">${org}</strong>`)}
       </p>
-      <a href="${href}" style="display:inline-block;background:${BRAND.blue};color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;padding:12px 22px;border-radius:8px;">Accepter l'invitation</a>
+      <a href="${href}" style="display:inline-block;background:${BRAND.blue};color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;padding:12px 22px;border-radius:8px;">${t.button}</a>
       <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:${BRAND.muted};">
-        Ce lien expire le ${expires}. Si le bouton ne fonctionne pas, copiez cette adresse :<br>
+        ${t.fallback(expires)}<br>
         <a href="${href}" style="color:${BRAND.blue};word-break:break-all;">${href}</a>
-      </p>`),
+      </p>`,
+    ),
   };
 }
 
@@ -80,9 +103,9 @@ export function invitationEmail(params: {
 const BRAND = { navy: "#0B1F44", blue: "#2563FF", muted: "#5B6B86", surface: "#F3F6FB", border: "#DCE3EF" };
 
 /** Gabarit commun des emails : en-tête navy avec le nom OmniList, carte blanche, pied avec le slogan. */
-function brandedEmail(content: string): string {
+function brandedEmail(locale: Locale, content: string): string {
   return `<!doctype html>
-<html lang="fr"><body style="margin:0;padding:0;background:${BRAND.surface};font-family:Inter,'Segoe UI',Arial,sans-serif;">
+<html lang="${locale}"><body style="margin:0;padding:0;background:${BRAND.surface};font-family:Inter,'Segoe UI',Arial,sans-serif;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.surface};padding:32px 12px;">
   <tr><td align="center">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">

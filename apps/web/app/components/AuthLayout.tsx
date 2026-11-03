@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useI18n } from "../i18n/I18nProvider";
+import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 import { BrandKeywords } from "./Brand";
 import { Logo } from "./Logo";
 
@@ -10,27 +14,28 @@ export function AuthLayout({ title, subtitle, children, footer }: {
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const { brand } = useI18n().t;
   return (
     <div className="auth">
       <aside className="auth-brand">
-        <Link href="/" aria-label="OmniList, accueil">
+        <Link href="/" aria-label={brand.home}>
           <Logo variant="inverse" size={40} />
         </Link>
         <div className="auth-brand-body">
           <h2>
-            Publiez une fois.
+            {brand.headline1}
             <br />
-            <span style={{ color: "#4d82ff" }}>Vendez partout.</span>
+            <span style={{ color: "#4d82ff" }}>{brand.headline2}</span>
           </h2>
-          <p>
-            Mettez à jour un produit une seule fois : annonces, stock et détails restent synchronisés sur tous vos
-            canaux de vente.
-          </p>
+          <p>{brand.authPitch}</p>
           <BrandKeywords dark />
         </div>
       </aside>
       <main className="auth-main">
         <div className="auth-card">
+          <div className="auth-card-lang">
+            <LanguageSwitcher />
+          </div>
           <h1>{title}</h1>
           {subtitle && <p className="muted">{subtitle}</p>}
           {children}

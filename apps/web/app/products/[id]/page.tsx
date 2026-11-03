@@ -9,7 +9,9 @@ import { Alert } from "../../components/Alert";
 import { AppShell } from "../../components/AppShell";
 import { ChannelPanel } from "../../components/products/ChannelPanel";
 import { ProductForm } from "../../components/products/ProductForm";
+import { PageLoading } from "../../components/PageLoading";
 import { useSession } from "../../components/useSession";
+import { useI18n } from "../../i18n/I18nProvider";
 import { api, type ChannelSettings, type ProductDetail } from "../../lib/api";
 
 type Tab = "master" | Channel;
@@ -19,6 +21,7 @@ function ProductEditor() {
   const router = useRouter();
   const justCreated = useSearchParams().get("created") === "1";
   const { me, logout } = useSession();
+  const { t } = useI18n();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("master");
@@ -33,22 +36,22 @@ function ProductEditor() {
   }
 
   async function onDelete() {
-    if (!product || !window.confirm(`Supprimer « ${product.title} » et ses photos ? Cette action est définitive.`)) return;
+    if (!product || !window.confirm(t.productPage.confirmDelete(product.title))) return;
     const res = await api(`/products/${product.id}`, { method: "DELETE" });
     if (res.ok) router.replace("/products");
     else setError(res.message);
   }
 
-  if (!me) return <div className="loading">Chargement…</div>;
+  if (!me) return <PageLoading />;
 
   return (
     <AppShell me={me} active="products" onLogout={logout}>
       <Link href="/products" className="back-link">
-        <ArrowLeft size={16} aria-hidden /> Produits
+        <ArrowLeft size={16} aria-hidden /> {t.products.title}
       </Link>
 
       {error && <Alert kind="error">{error}</Alert>}
-      {!product && !error && <p className="muted">Chargement…</p>}
+      {!product && !error && <p className="muted">{t.common.loading}</p>}
 
       {product && (
         <>
@@ -56,23 +59,25 @@ function ProductEditor() {
             <div>
               <h1>{product.title}</h1>
               <p className="muted">
-                {product.mode === "SINGLE" ? `SKU ${product.sku} · article unique` : `${product.variants.length} variantes · ${product.quantity} en stock`}
+                {product.mode === "SINGLE"
+                  ? t.products.singleItem(product.sku ?? "")
+                  : t.products.variantsInStock(product.variants.length, product.quantity)}
               </p>
             </div>
             <button type="button" className="btn btn--danger-ghost" onClick={onDelete}>
-              <Trash2 size={16} aria-hidden /> Supprimer
+              <Trash2 size={16} aria-hidden /> {t.productPage.delete}
             </button>
           </div>
 
           {justCreated && tab === "master" && (
             <div style={{ marginBottom: "1.25rem" }}>
-              <Alert kind="success">Produit créé. Ajustez maintenant le titre, la catégorie et le prix pour chaque canal.</Alert>
+              <Alert kind="success">{t.productPage.created}</Alert>
             </div>
           )}
 
-          <div className="tabs" role="tablist" aria-label="Fiche produit">
+          <div className="tabs" role="tablist" aria-label={t.productPage.tabsLabel}>
             <button type="button" role="tab" aria-selected={tab === "master"} className="tab" onClick={() => setTab("master")}>
-              Fiche maître
+              {t.productPage.master}
             </button>
             {product.channels.map((c) => (
               <button
@@ -84,8 +89,8 @@ function ProductEditor() {
                 onClick={() => setTab(c.channel)}
               >
                 {c.label}
-                {c.enabled && c.warnings.length > 0 && <AlertTriangle size={14} className="tab-warn" aria-label="Réglages à compléter" />}
-                {!c.enabled && <span className="tab-state">désactivé</span>}
+                {c.enabled && c.warnings.length > 0 && <AlertTriangle size={14} className="tab-warn" aria-label={t.productPage.toComplete} />}
+                {!c.enabled && <span className="tab-state">{t.productPage.disabled}</span>}
               </button>
             ))}
           </div>
@@ -110,7 +115,7 @@ function ProductEditor() {
 
 export default function ProductPage() {
   return (
-    <Suspense fallback={<div className="loading">Chargement…</div>}>
+    <Suspense fallback={<PageLoading />}>
       <ProductEditor />
     </Suspense>
   );

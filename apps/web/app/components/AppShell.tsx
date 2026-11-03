@@ -3,28 +3,29 @@
 import Link from "next/link";
 import { BarChart3, CreditCard, Layers, LogOut, Share2, Tag, Users, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { useI18n } from "../i18n/I18nProvider";
+import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 import type { Me } from "../lib/api";
 import { Logo } from "./Logo";
 
+type NavKey = "products" | "stock" | "channels" | "analytics" | "team" | "billing";
+
 interface NavItem {
-  key: string;
-  label: string;
+  key: NavKey;
   icon: LucideIcon;
   href?: string; // absent : écran pas encore disponible
   permission?: string; // masqué si le rôle n'a pas cette permission
 }
 
-// Ordre et libellés repris de la charte (Listings, Inventory, Channels, Analytics).
+// Ordre repris de la charte (Listings, Inventory, Channels, Analytics).
 const NAV: NavItem[] = [
-  { key: "products", label: "Produits", icon: Tag, href: "/products" },
-  { key: "stock", label: "Stock", icon: Layers },
-  { key: "channels", label: "Canaux", icon: Share2, permission: "channels:manage" },
-  { key: "analytics", label: "Analytique", icon: BarChart3 },
-  { key: "team", label: "Équipe", icon: Users, href: "/team" },
-  { key: "billing", label: "Abonnement", icon: CreditCard, permission: "billing:manage" },
+  { key: "products", icon: Tag, href: "/products" },
+  { key: "stock", icon: Layers },
+  { key: "channels", icon: Share2, permission: "channels:manage" },
+  { key: "analytics", icon: BarChart3 },
+  { key: "team", icon: Users, href: "/team" },
+  { key: "billing", icon: CreditCard, permission: "billing:manage" },
 ];
-
-export const ROLE_LABEL = { OWNER: "Propriétaire", EMPLOYEE: "Employé" } as const;
 
 export const initials = (name: string) =>
   name
@@ -40,6 +41,7 @@ export function AppShell({ me, active, onLogout, children }: {
   onLogout: () => void;
   children: ReactNode;
 }) {
+  const { t } = useI18n();
   const displayName = me.user.name ?? me.user.email;
   const items = NAV.filter((item) => !item.permission || me.permissions.includes(item.permission));
 
@@ -50,30 +52,32 @@ export function AppShell({ me, active, onLogout, children }: {
           <Link href="/products" aria-label="OmniList">
             <Logo variant="inverse" size={34} />
           </Link>
-          <nav className="app-nav" aria-label="Navigation principale">
-            {items.map(({ key, label, icon: Icon, href }) =>
-              href ? (
+          <nav className="app-nav" aria-label={t.nav.main}>
+            {items.map(({ key, icon: Icon, href }) => {
+              const label = t.nav[key];
+              return href ? (
                 <Link key={key} href={href} className="nav-item" aria-current={key === active ? "page" : undefined}>
                   <Icon size={17} aria-hidden /> {label}
                 </Link>
               ) : (
-                <span key={key} className="nav-item" aria-disabled="true" title={`${label} : bientôt disponible`}>
+                <span key={key} className="nav-item" aria-disabled="true" title={t.nav.soon(label)}>
                   <Icon size={17} aria-hidden /> {label}
                 </span>
-              ),
-            )}
+              );
+            })}
           </nav>
           <div className="app-user">
+            <LanguageSwitcher dark />
             <span className="app-user-name">
               {displayName}
               <small>
-                {me.organization.name} · {ROLE_LABEL[me.role]}
+                {me.organization.name} · {t.roles[me.role]}
               </small>
             </span>
             <span className="avatar" aria-hidden>
               {initials(displayName)}
             </span>
-            <button className="icon-btn" onClick={onLogout} aria-label="Se déconnecter" title="Se déconnecter">
+            <button className="icon-btn" onClick={onLogout} aria-label={t.nav.logout} title={t.nav.logout}>
               <LogOut size={18} aria-hidden />
             </button>
           </div>

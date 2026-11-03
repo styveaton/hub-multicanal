@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Alert } from "../components/Alert";
 import { AuthLayout } from "../components/AuthLayout";
+import { useI18n } from "../i18n/I18nProvider";
 import { api, type Me } from "../lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -28,26 +30,26 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      title="Bon retour"
-      subtitle="Connectez-vous pour gérer vos annonces et votre stock."
+      title={t.login.title}
+      subtitle={t.login.subtitle}
       footer={
         <>
-          Pas encore de compte ? <Link href="/signup">Créer un compte</Link>
+          {t.login.noAccount} <Link href="/signup">{t.login.signupLink}</Link>
         </>
       }
     >
       <form className="form" onSubmit={onSubmit}>
         <label className="field">
-          Email
+          {t.common.email}
           <input className="input" name="email" type="email" required autoComplete="email" />
         </label>
         <label className="field">
-          Mot de passe
+          {t.common.password}
           <input className="input" name="password" type="password" required autoComplete="current-password" />
         </label>
         {error && <Alert kind="error">{error}</Alert>}
         <button className="btn btn--block" disabled={pending}>
-          {pending ? "Connexion…" : "Se connecter"}
+          {pending ? t.login.pending : t.login.submit}
         </button>
       </form>
     </AuthLayout>

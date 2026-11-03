@@ -5,7 +5,9 @@ import { AlertTriangle, ImageOff, Plus, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CHANNEL_LABEL, formatMoney } from "@hub/shared";
 import { AppShell } from "../components/AppShell";
+import { PageLoading } from "../components/PageLoading";
 import { useSession } from "../components/useSession";
+import { useI18n } from "../i18n/I18nProvider";
 import { api, type ProductListItem } from "../lib/api";
 
 interface ProductList {
@@ -13,13 +15,14 @@ interface ProductList {
   items: ProductListItem[];
 }
 
-const priceLabel = (p: ProductListItem) =>
+const priceLabel = (p: ProductListItem, intl: string) =>
   p.priceRange.minCents === p.priceRange.maxCents
-    ? formatMoney(p.priceRange.minCents, p.currency)
-    : `${formatMoney(p.priceRange.minCents, p.currency)} – ${formatMoney(p.priceRange.maxCents, p.currency)}`;
+    ? formatMoney(p.priceRange.minCents, p.currency, intl)
+    : `${formatMoney(p.priceRange.minCents, p.currency, intl)} – ${formatMoney(p.priceRange.maxCents, p.currency, intl)}`;
 
 export default function ProductsPage() {
   const { me, logout } = useSession();
+  const { t, intl } = useI18n();
   const [query, setQuery] = useState("");
   const [list, setList] = useState<ProductList | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,17 +38,17 @@ export default function ProductsPage() {
     return () => clearTimeout(timer);
   }, [me, query]);
 
-  if (!me) return <div className="loading">Chargement…</div>;
+  if (!me) return <PageLoading />;
 
   return (
     <AppShell me={me} active="products" onLogout={logout}>
       <div className="page-header page-header--actions">
         <div>
-          <h1>Produits</h1>
-          <p className="muted">Une fiche maître par produit, adaptée ensuite à chaque canal.</p>
+          <h1>{t.products.title}</h1>
+          <p className="muted">{t.products.intro}</p>
         </div>
         <Link href="/products/new" className="btn">
-          <Plus size={18} aria-hidden /> Nouveau produit
+          <Plus size={18} aria-hidden /> {t.products.new}
         </Link>
       </div>
 
@@ -57,22 +60,22 @@ export default function ProductsPage() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher par titre ou SKU"
-            aria-label="Rechercher un produit"
+            placeholder={t.products.searchPlaceholder}
+            aria-label={t.products.searchLabel}
           />
         </label>
-        {list && <span className="muted">{list.total} produit{list.total > 1 ? "s" : ""}</span>}
+        {list && <span className="muted">{t.products.count(list.total)}</span>}
       </div>
 
       {error && <p className="field-error">{error}</p>}
 
       {list && list.items.length === 0 ? (
         <div className="card empty-state">
-          <h2>{query ? "Aucun produit trouvé" : "Aucun produit pour l'instant"}</h2>
-          <p className="muted">{query ? "Essayez un autre titre ou SKU." : "Créez votre première fiche maître : photos, prix, variantes."}</p>
+          <h2>{query ? t.products.noResult : t.products.empty}</h2>
+          <p className="muted">{query ? t.products.noResultHint : t.products.emptyHint}</p>
           {!query && (
             <Link href="/products/new" className="btn">
-              <Plus size={18} aria-hidden /> Créer un produit
+              <Plus size={18} aria-hidden /> {t.products.create}
             </Link>
           )}
         </div>
@@ -91,16 +94,16 @@ export default function ProductsPage() {
                 </span>
                 <span className="product-main">
                   <strong>{p.title}</strong>
-                  <small>{p.mode === "SINGLE" ? `SKU ${p.sku} · article unique` : `${p.variantCount} variante${p.variantCount > 1 ? "s" : ""}`}</small>
+                  <small>{p.mode === "SINGLE" ? t.products.singleItem(p.sku ?? "") : t.products.variantCount(p.variantCount)}</small>
                 </span>
-                <span className="product-price">{priceLabel(p)}</span>
+                <span className="product-price">{priceLabel(p, intl)}</span>
                 <span className="product-stock">
                   <strong>{p.quantity}</strong>
-                  <small>en stock</small>
+                  <small>{t.products.inStock}</small>
                 </span>
                 <span className="product-channels">
                   {p.channels.length === 0 ? (
-                    <span className="badge">Aucun canal</span>
+                    <span className="badge">{t.products.noChannel}</span>
                   ) : (
                     p.channels.map((c) => (
                       <span key={c} className="badge badge--channel">
@@ -109,7 +112,7 @@ export default function ProductsPage() {
                     ))
                   )}
                   {p.warningCount > 0 && (
-                    <span className="badge badge--warn" title="Réglages à compléter pour certains canaux">
+                    <span className="badge badge--warn" title={t.products.warningsTitle}>
                       <AlertTriangle size={12} aria-hidden /> {p.warningCount}
                     </span>
                   )}

@@ -2,8 +2,9 @@
 
 import { AlertTriangle, Info } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { PERCENT_BPS_MAX, PERCENT_BPS_MIN, applyPriceRule, feePreview, formatMoney, type PriceRule } from "@hub/shared";
+import { FEE_NOTES, PERCENT_BPS_MAX, PERCENT_BPS_MIN, applyPriceRule, feePreview, formatMoney, type PriceRule } from "@hub/shared";
 import { Alert } from "../Alert";
+import { useI18n } from "../../i18n/I18nProvider";
 import { api, centsToInput, parseMoney, type ChannelSettings, type ProductDetail } from "../../lib/api";
 
 type PriceMode = PriceRule["mode"];
@@ -18,6 +19,10 @@ export function ChannelPanel({
   settings: ChannelSettings;
   onSaved: (s: ChannelSettings) => void;
 }) {
+  const { t, locale, intl } = useI18n();
+  const c = t.channel;
+  const label = settings.label;
+  const money = (cents: number) => formatMoney(cents, product.currency, intl);
   const [enabled, setEnabled] = useState(settings.enabled);
   const [title, setTitle] = useState(settings.title ?? "");
   const [category, setCategory] = useState(settings.category ?? "");
@@ -37,14 +42,14 @@ export function ChannelPanel({
     if (priceMode === "BASE") return { mode: "BASE" };
     if (priceMode === "FIXED") {
       const cents = parseMoney(fixed);
-      return cents == null ? "Prix fixe invalide." : { mode: "FIXED", priceCents: cents };
+      return cents == null ? c.fixedInvalid : { mode: "FIXED", priceCents: cents };
     }
     const value = Number(percent.replace(",", "."));
     const bps = Math.round(value * 100);
-    if (percent.trim() === "" || !Number.isFinite(value)) return "Pourcentage invalide.";
-    if (bps < PERCENT_BPS_MIN || bps > PERCENT_BPS_MAX) return "Pourcentage entre -90 % et +300 %.";
+    if (percent.trim() === "" || !Number.isFinite(value)) return c.percentInvalid;
+    if (bps < PERCENT_BPS_MIN || bps > PERCENT_BPS_MAX) return c.percentRange;
     return { mode: "PERCENT", percentBps: bps };
-  }, [priceMode, fixed, percent]);
+  }, [priceMode, fixed, percent, c]);
 
   // Aperçu en direct, avec les mêmes règles que l'API.
   const items = single
@@ -56,7 +61,7 @@ export function ChannelPanel({
     setError(null);
     setSaved(false);
     if (typeof rule === "string") return setError(rule);
-    if (title.trim().length > settings.titleMax) return setError(`Titre trop long pour ${settings.label} (${settings.titleMax} caractères maximum).`);
+    if (title.trim().length > settings.titleMax) return setError(c.titleTooLong(label, settings.titleMax));
     setPending(true);
     const res = await api<ChannelSettings>(`/products/${product.id}/channels/${settings.channel}`, {
       method: "PUT",
@@ -73,43 +78,43 @@ export function ChannelPanel({
       <section className="card">
         <div className="card-header">
           <div>
-            <h2>Publication sur {settings.label}</h2>
-            <p className="muted">La publication réelle arrivera avec la connexion du compte {settings.label}.</p>
+            <h2>{c.publishOn(label)}</h2>
+            <p className="muted">{c.publishHint(label)}</p>
           </div>
           <label className="switch">
             <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
             <span className="switch-track" aria-hidden />
-            <span>{enabled ? "Activé" : "Désactivé"}</span>
+            <span>{enabled ? c.enabled : c.disabled}</span>
           </label>
         </div>
 
         <fieldset className="form" disabled={!enabled}>
           <label className="field">
-            Titre pour {settings.label} <span className="field-optional">(facultatif)</span>
+            {c.titleFor(label)} <span className="field-optional">{t.common.optional}</span>
             <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={product.title} />
             <span className={`field-hint${titleTooLong ? " field-hint--warn" : ""}`}>
-              {effectiveTitle.length}/{settings.titleMax} caractères
-              {title.trim() ? "" : " · titre de la fiche maître utilisé"}
+              {c.characters(effectiveTitle.length, settings.titleMax)}
+              {title.trim() ? "" : c.masterTitleUsed}
             </span>
           </label>
           <label className="field">
-            Catégorie {settings.label}
-            <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="ex. Vêtements > Vestes" />
-            <span className="field-hint">Texte libre pour l&apos;instant ; la liste officielle arrivera avec la connexion du canal.</span>
+            {c.category(label)}
+            <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={c.categoryPlaceholder} />
+            <span className="field-hint">{c.categoryHint}</span>
           </label>
 
-          <div className="field" role="radiogroup" aria-label="Prix sur ce canal">
-            Prix sur {settings.label}
+          <div className="field" role="radiogroup" aria-label={c.priceLabel}>
+            {c.priceOn(label)}
             <div className="price-modes">
               <label className="radio">
                 <input type="radio" name={`mode-${settings.channel}`} checked={priceMode === "BASE"} onChange={() => setPriceMode("BASE")} />
-                Prix de la fiche maître
+                {c.base}
               </label>
               <label className="radio">
                 <input type="radio" name={`mode-${settings.channel}`} checked={priceMode === "PERCENT"} onChange={() => setPriceMode("PERCENT")} />
-                Ajuster en %
+                {c.percent}
               </label>
-              <label className={`radio${single ? "" : " radio--disabled"}`} title={single ? undefined : "Réservé aux articles uniques"}>
+              <label className={`radio${single ? "" : " radio--disabled"}`} title={single ? undefined : c.fixedSingleOnly}>
                 <input
                   type="radio"
                   name={`mode-${settings.channel}`}
@@ -117,7 +122,7 @@ export function ChannelPanel({
                   onChange={() => setPriceMode("FIXED")}
                   disabled={!single}
                 />
-                Prix fixe
+                {c.fixed}
               </label>
             </div>
             {priceMode === "PERCENT" && (
@@ -127,15 +132,15 @@ export function ChannelPanel({
                   inputMode="decimal"
                   value={percent}
                   onChange={(e) => setPercent(e.target.value)}
-                  placeholder="ex. 10 ou -5"
-                  aria-label="Ajustement en pourcentage"
+                  placeholder={c.percentPlaceholder}
+                  aria-label={c.percentLabel}
                 />
                 <span>%</span>
               </span>
             )}
             {priceMode === "FIXED" && (
               <span className="input-affix">
-                <input className="input" inputMode="decimal" value={fixed} onChange={(e) => setFixed(e.target.value)} placeholder="0.00" aria-label="Prix fixe en dollars" />
+                <input className="input" inputMode="decimal" value={fixed} onChange={(e) => setFixed(e.target.value)} placeholder="0.00" aria-label={c.fixedLabel} />
                 <span>$</span>
               </span>
             )}
@@ -146,19 +151,19 @@ export function ChannelPanel({
       <section className="card">
         <div className="card-header">
           <div>
-            <h2>Aperçu indicatif des frais</h2>
-            <p className="muted">Estimation : les frais réels dépendent de la catégorie et de votre contrat.</p>
+            <h2>{c.feesTitle}</h2>
+            <p className="muted">{c.feesHint}</p>
           </div>
         </div>
         <div className="table-scroll">
           <table className="fee-table">
             <thead>
               <tr>
-                <th scope="col">{single ? "Article" : "Variante"}</th>
-                <th scope="col">Prix maître</th>
-                <th scope="col">Prix {settings.label}</th>
-                <th scope="col">Frais estimés</th>
-                <th scope="col">Net estimé</th>
+                <th scope="col">{single ? c.item : c.variant}</th>
+                <th scope="col">{c.masterPrice}</th>
+                <th scope="col">{c.channelPrice(label)}</th>
+                <th scope="col">{c.fees}</th>
+                <th scope="col">{c.net}</th>
               </tr>
             </thead>
             <tbody>
@@ -167,10 +172,10 @@ export function ChannelPanel({
                 return (
                   <tr key={item.key}>
                     <th scope="row">{item.label}</th>
-                    <td>{formatMoney(item.base, product.currency)}</td>
-                    <td>{p ? formatMoney(p.priceCents, product.currency) : "—"}</td>
-                    <td className="fee">{p ? `− ${formatMoney(p.feeCents, product.currency)}` : "—"}</td>
-                    <td className="net">{p ? formatMoney(p.netCents, product.currency) : "—"}</td>
+                    <td>{money(item.base)}</td>
+                    <td>{p ? money(p.priceCents) : "—"}</td>
+                    <td className="fee">{p ? `− ${money(p.feeCents)}` : "—"}</td>
+                    <td className="net">{p ? money(p.netCents) : "—"}</td>
                   </tr>
                 );
               })}
@@ -178,7 +183,7 @@ export function ChannelPanel({
           </table>
         </div>
         <p className="note">
-          <Info size={16} aria-hidden /> {settings.feeNote}
+          <Info size={16} aria-hidden /> {FEE_NOTES[settings.channel][locale]}
         </p>
       </section>
 
@@ -186,7 +191,8 @@ export function ChannelPanel({
         <ul className="warnings">
           {settings.warnings.map((w) => (
             <li key={w.code}>
-              <AlertTriangle size={16} aria-hidden /> {w.message}
+              <AlertTriangle size={16} aria-hidden />{" "}
+              {w.code === "title_too_long" ? c.warnings.title_too_long(label, w.length, w.max) : c.warnings.category_missing(label)}
             </li>
           ))}
         </ul>
@@ -194,9 +200,9 @@ export function ChannelPanel({
 
       <div className="form-footer">
         {error && <Alert kind="error">{error}</Alert>}
-        {saved && !error && <Alert kind="success">Réglages {settings.label} enregistrés.</Alert>}
+        {saved && !error && <Alert kind="success">{c.saved(label)}</Alert>}
         <button className="btn" disabled={pending}>
-          {pending ? "Enregistrement…" : `Enregistrer pour ${settings.label}`}
+          {pending ? t.common.saving : c.save(label)}
         </button>
       </div>
     </form>

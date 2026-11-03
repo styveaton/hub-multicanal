@@ -1,4 +1,6 @@
 import type { Channel, PriceRule } from "@hub/shared";
+import fr from "../i18n/fr";
+import type { Messages } from "../i18n";
 
 export interface Me {
   user: { id: string; email: string; name: string | null };
@@ -16,13 +18,6 @@ export interface Invitation {
 }
 
 export type Condition = "NEW" | "USED_LIKE_NEW" | "USED_GOOD" | "USED_FAIR";
-
-export const CONDITION_LABEL: Record<Condition, string> = {
-  NEW: "Neuf",
-  USED_LIKE_NEW: "Comme neuf",
-  USED_GOOD: "Très bon état",
-  USED_FAIR: "Bon état",
-};
 
 export interface Photo {
   id: string;
@@ -46,9 +41,8 @@ export interface ChannelSettings {
   titleMax: number;
   category: string | null;
   price: PriceRule;
-  feeNote: string;
   preview: Array<{ variantId: string | null; sku: string; basePriceCents: number; priceCents: number; feeCents: number; netCents: number }>;
-  warnings: Array<{ code: string; message: string }>;
+  warnings: Array<{ code: "title_too_long"; length: number; max: number } | { code: "category_missing" }>;
 }
 
 export interface ProductDetail {
@@ -88,36 +82,23 @@ export type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; code: string; message: string; details: Record<string, unknown> };
 
-const MESSAGES: Record<string, string | ((d: Record<string, unknown>) => string)> = {
-  email_taken: "Un compte existe déjà avec cet email.",
-  invalid_credentials: "Email ou mot de passe incorrect.",
-  validation_error: "Vérifiez les champs du formulaire.",
-  already_member: "Cette personne fait déjà partie de l'équipe.",
-  invalid_invitation: "Ce lien d'invitation n'est plus valable.",
-  invitation_expired: "Ce lien d'invitation a expiré. Demandez une nouvelle invitation.",
-  name_required: "Indiquez votre nom.",
-  weak_password: "Le mot de passe doit faire au moins 8 caractères.",
-  email_failed: "L'email n'a pas pu être envoyé. Réessayez.",
-  forbidden: "Vous n'avez pas les droits pour cette action.",
-  unauthenticated: "Vous devez être connecté.",
-  not_found: "Élément introuvable.",
-  sku_taken: (d) => `Le SKU « ${String(d.sku)} » est déjà utilisé par un autre produit.`,
-  invalid_photos: "Une des photos n'est plus disponible. Retirez-la et envoyez-la à nouveau.",
-  photo_too_large: "Photo trop lourde (10 Mo maximum).",
-  unsupported_photo_type: "Format non pris en charge : utilisez JPEG, PNG ou WebP.",
-  fixed_price_single_only: "Le prix fixe n'est possible que pour un article unique. Utilisez un pourcentage.",
-  title_too_long: (d) => `Titre trop long pour ce canal (${String(d.max)} caractères maximum).`,
-};
+// Textes de la langue courante, fournis par I18nProvider (français par défaut avant le premier rendu).
+let messages: Messages = fr;
+export function setApiMessages(next: Messages) {
+  messages = next;
+}
 
 function messageFor(code: string, data: Record<string, unknown>): string {
-  // Pour une erreur de validation, on affiche le premier message précis renvoyé par l'API.
+  const { errors, validation } = messages;
+  // Erreur de validation : on traduit le premier code précis renvoyé par l'API, sinon message générique.
   if (code === "validation_error") {
     const first = (data.issues as Array<{ message?: string }> | undefined)?.[0]?.message;
-    if (first && !first.startsWith("Expected") && !first.startsWith("Required")) return first;
+    if (first && first in validation) return validation[first as keyof typeof validation];
   }
-  const m = MESSAGES[code];
-  if (typeof m === "function") return m(data);
-  return m ?? "Une erreur est survenue.";
+  if (code === "sku_taken") return errors.sku_taken(String(data.sku));
+  if (code === "title_too_long") return errors.title_too_long(Number(data.max));
+  const m = errors[code as keyof typeof errors];
+  return typeof m === "string" ? m : errors.generic;
 }
 
 /** Appelle l'API via le proxy /api (cookie de session inclus). */

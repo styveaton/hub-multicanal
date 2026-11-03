@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowRight, ImagePlus, Loader2, Star, X } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
+import { useI18n } from "../../i18n/I18nProvider";
 import { api, type Photo } from "../../lib/api";
 
 export const MAX_PHOTOS = 12;
@@ -12,6 +13,7 @@ const ACCEPT = "image/jpeg,image/png,image/webp";
  * Chaque fichier est envoyé dès qu'il est choisi ; l'ordre se règle avec les flèches.
  */
 export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange: (photos: Photo[]) => void }) {
+  const t = useI18n().t.photos;
   const input = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
   async function addFiles(files: FileList | File[]) {
     setError(null);
     const list = Array.from(files);
-    if (list.length > remaining) setError(`${MAX_PHOTOS} photos maximum : ${list.length - Math.max(remaining, 0)} photo(s) ignorée(s).`);
+    if (list.length > remaining) setError(t.tooMany(MAX_PHOTOS, list.length - Math.max(remaining, 0)));
     const accepted = list.slice(0, Math.max(remaining, 0));
     if (accepted.length === 0) return;
 
@@ -58,14 +60,14 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
         {photos.map((photo, i) => (
           <figure key={photo.id} className={`photo${i === 0 ? " photo--main" : ""}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api${photo.url}`} alt={`Photo ${i + 1}`} />
+            <img src={`/api${photo.url}`} alt={t.alt(i + 1)} />
             {i === 0 && (
               <span className="photo-badge">
-                <Star size={12} aria-hidden /> Principale
+                <Star size={12} aria-hidden /> {t.main}
               </span>
             )}
             <div className="photo-actions">
-              <button type="button" className="photo-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Avancer la photo ${i + 1}`}>
+              <button type="button" className="photo-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label={t.moveBack(i + 1)}>
                 <ArrowLeft size={14} />
               </button>
               <button
@@ -73,7 +75,7 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
                 className="photo-btn"
                 onClick={() => move(i, 1)}
                 disabled={i === photos.length - 1}
-                aria-label={`Reculer la photo ${i + 1}`}
+                aria-label={t.moveForward(i + 1)}
               >
                 <ArrowRight size={14} />
               </button>
@@ -81,7 +83,7 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
                 type="button"
                 className="photo-btn photo-btn--danger"
                 onClick={() => onChange(photos.filter((p) => p.id !== photo.id))}
-                aria-label={`Retirer la photo ${i + 1}`}
+                aria-label={t.remove(i + 1)}
               >
                 <X size={14} />
               </button>
@@ -89,7 +91,7 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
           </figure>
         ))}
         {Array.from({ length: uploading }, (_, i) => (
-          <div key={`up-${i}`} className="photo photo--loading" aria-label="Envoi en cours">
+          <div key={`up-${i}`} className="photo photo--loading" aria-label={t.uploading}>
             <Loader2 size={22} className="spin" aria-hidden />
           </div>
         ))}
@@ -106,8 +108,8 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
             onDrop={onDrop}
           >
             <ImagePlus size={24} aria-hidden />
-            <span>Ajouter des photos</span>
-            <small>JPEG, PNG ou WebP · 10 Mo max</small>
+            <span>{t.add}</span>
+            <small>{t.formats}</small>
           </button>
         )}
       </div>
@@ -123,7 +125,7 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
         }}
       />
       <p className="field-hint">
-        {photos.length}/{MAX_PHOTOS} photos · au moins 1 obligatoire · la première est la photo principale
+        {t.counter(photos.length, MAX_PHOTOS)}
       </p>
       {error && <p className="field-error">{error}</p>}
     </div>
