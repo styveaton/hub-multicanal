@@ -60,7 +60,10 @@ cat >deploy/seaweedfs/s3.json <<EOF
   ]
 }
 EOF
-chmod 600 deploy/seaweedfs/s3.json
+# Le conteneur SeaweedFS ne tourne pas sous ton utilisateur : le fichier doit être lisible (644).
+# Le dossier reste fermé (700) : les autres comptes du serveur ne peuvent pas l'ouvrir.
+chmod 644 deploy/seaweedfs/s3.json
+chmod 700 deploy/seaweedfs
 
 echo "Fichier prêt : $FILE"
 missing=""
