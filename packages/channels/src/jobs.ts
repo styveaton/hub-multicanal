@@ -1,6 +1,7 @@
 import type { Channel, ChannelConnection, PrismaClient } from "@hub/db";
 import { pollDepopOrders } from "./depop/orders.js";
 import { pollEbayOrders, publishToEbay, removeFromEbay } from "./ebay/sync.js";
+import { pollEtsyOrders, publishToEtsy, removeFromEtsy } from "./etsy/sync.js";
 import type { ChannelDeps } from "./listing.js";
 import { publishToDepop, removeFromDepop } from "./publish.js";
 import { pollShopifyOrders, publishToShopify, removeFromShopify } from "./shopify/sync.js";
@@ -10,7 +11,7 @@ import { pollWooOrders, publishToWoo, removeFromWoo } from "./woocommerce/sync.j
 export const CHANNEL_QUEUE = "channel-sync";
 
 /** Canaux branchés de bout en bout (publication, stock, commandes). */
-export const PUBLISHABLE_CHANNELS: readonly Channel[] = ["EBAY", "DEPOP", "SHOPIFY", "WOOCOMMERCE"];
+export const PUBLISHABLE_CHANNELS: readonly Channel[] = ["EBAY", "ETSY", "DEPOP", "SHOPIFY", "WOOCOMMERCE"];
 
 /** Ce que chaque canal branché sait faire. */
 const HANDLERS: Partial<
@@ -24,6 +25,7 @@ const HANDLERS: Partial<
   >
 > = {
   EBAY: { publish: publishToEbay, remove: removeFromEbay, poll: pollEbayOrders },
+  ETSY: { publish: publishToEtsy, remove: removeFromEtsy, poll: pollEtsyOrders },
   DEPOP: { publish: publishToDepop, remove: removeFromDepop, poll: pollDepopOrders },
   SHOPIFY: { publish: publishToShopify, remove: removeFromShopify, poll: pollShopifyOrders },
   WOOCOMMERCE: { publish: publishToWoo, remove: removeFromWoo, poll: pollWooOrders },

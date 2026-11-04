@@ -2,7 +2,19 @@ import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import { ZodError } from "zod";
 import { Prisma, type PrismaClient } from "@hub/db";
-import type { ChannelConfig, DepopClient, EbayClient, FakeDepop, FakeEbay, FakeShopify, FakeWoo, ShopifyClient, WooClient } from "@hub/channels";
+import type {
+  ChannelConfig,
+  DepopClient,
+  EbayClient,
+  EtsyClient,
+  FakeDepop,
+  FakeEbay,
+  FakeEtsy,
+  FakeShopify,
+  FakeWoo,
+  ShopifyClient,
+  WooClient,
+} from "@hub/channels";
 import type { Env } from "./env.js";
 import { HttpError } from "./lib/errors.js";
 import type { Mailer } from "./lib/mailer.js";
@@ -13,6 +25,7 @@ import { authRoutes } from "./routes/auth.js";
 import { channelRoutes } from "./routes/channels.js";
 import { fakeDepopRoutes } from "./routes/fake-depop.js";
 import { fakeEbayRoutes } from "./routes/fake-ebay.js";
+import { fakeEtsyRoutes } from "./routes/fake-etsy.js";
 import { fakeShopifyRoutes } from "./routes/fake-shopify.js";
 import { fakeWooRoutes } from "./routes/fake-woo.js";
 import { healthRoutes } from "./routes/health.js";
@@ -40,12 +53,14 @@ export interface ChannelRuntime {
   shopify: ShopifyClient;
   woo: WooClient;
   ebay: EbayClient;
+  etsy: EtsyClient;
   queue: JobQueue;
   /** Faux canaux servis par l'API (mode fake, en local et dans les tests). */
   fakeDepop?: FakeDepop;
   fakeShopify?: FakeShopify;
   fakeWoo?: FakeWoo;
   fakeEbay?: FakeEbay;
+  fakeEtsy?: FakeEtsy;
 }
 
 export interface AppDeps {
@@ -88,6 +103,7 @@ export function buildApp(env: Env, deps: AppDeps) {
   if (deps.channels.fakeShopify) app.register(fakeShopifyRoutes, { prefix: "/dev/fake-shopify" });
   if (deps.channels.fakeWoo) app.register(fakeWooRoutes, { prefix: "/dev/fake-woo" });
   if (deps.channels.fakeEbay) app.register(fakeEbayRoutes, { prefix: "/dev/fake-ebay" });
+  if (deps.channels.fakeEtsy) app.register(fakeEtsyRoutes, { prefix: "/dev/fake-etsy" });
 
   // Routes qui ont besoin de la session.
   app.register(async (scope) => {

@@ -4,6 +4,8 @@ import { DepopClient } from "./depop/client.js";
 import { FAKE_DEPOP_CLIENT_ID, FAKE_DEPOP_CLIENT_SECRET } from "./depop/fake.js";
 import { EbayClient } from "./ebay/client.js";
 import { FAKE_EBAY_CLIENT_ID, FAKE_EBAY_CLIENT_SECRET } from "./ebay/fake.js";
+import { EtsyClient } from "./etsy/client.js";
+import { FAKE_ETSY_KEYSTRING, FAKE_ETSY_SECRET } from "./etsy/fake.js";
 import { SHOPIFY_API_VERSION, ShopifyClient } from "./shopify/client.js";
 import { FAKE_SHOPIFY_CLIENT_ID, FAKE_SHOPIFY_CLIENT_SECRET } from "./shopify/fake.js";
 import { WooClient } from "./woocommerce/client.js";
@@ -42,6 +44,11 @@ const ChannelEnvSchema = z.object({
     .regex(/^[A-Za-z0-9_-]{32,80}$/, "EBAY_VERIFICATION_TOKEN : 32 à 80 caractères (lettres, chiffres, _ et -)")
     .optional()
     .or(z.literal("")),
+  // fake : faux Etsy intégré (local) ; live : vraie Open API v3 (application Etsy approuvée).
+  ETSY_ENV: z.enum(["fake", "live"]).default("fake"),
+  // Clé de l'application (« keystring ») et secret partagé, page « Your Apps » d'Etsy.
+  ETSY_KEYSTRING: z.string().optional(),
+  ETSY_SHARED_SECRET: z.string().optional(),
   // Relevé de secours des commandes (les webhooks peuvent se perdre).
   ORDER_POLL_SECONDS: z.coerce.number().int().min(15).optional(),
 });
@@ -100,6 +107,17 @@ export interface EbayConfig {
   deletionEndpoint: string;
 }
 
+export interface EtsyConfig {
+  mode: ChannelEnv["ETSY_ENV"];
+  available: boolean;
+  keystring: string;
+  sharedSecret: string;
+  apiBaseUrl: string;
+  authorizeUrl: string;
+  /** Adresse de retour, à déclarer telle quelle dans l'application Etsy. */
+  redirectUri: string;
+}
+
 const EBAY_HOSTS = {
   sandbox: { api: "https://api.sandbox.ebay.com", apiz: "https://apiz.sandbox.ebay.com", auth: "https://auth.sandbox.ebay.com", site: "https://sandbox.ebay.com" },
   production: { api: "https://api.ebay.com", apiz: "https://apiz.ebay.com", auth: "https://auth.ebay.com", site: "https://www.ebay.com" },
@@ -119,6 +137,7 @@ export interface ChannelConfig {
   shopify: ShopifyConfig;
   woo: WooConfig;
   ebay: EbayConfig;
+  etsy: EtsyConfig;
 }
 
 const blank = (v?: string) => !v || v.trim() === "";
@@ -135,6 +154,7 @@ export function loadChannelConfig(source: NodeJS.ProcessEnv = process.env): Chan
   if (!local && env.SHOPIFY_ENV === "fake") throw new Error("SHOPIFY_ENV=fake n'est autorisé qu'en local");
   if (!local && env.WOO_ENV === "fake") throw new Error("WOO_ENV=fake n'est autorisé qu'en local");
   if (!local && env.EBAY_ENV === "fake") throw new Error("EBAY_ENV=fake n'est autorisé qu'en local");
+  if (!local && env.ETSY_ENV === "fake") throw new Error("ETSY_ENV=fake n'est autorisé qu'en local");
   // eBay coupe les clés d'une application qui ne répond pas aux avis « suppression de compte ».
   if (!local && !blank(env.EBAY_CLIENT_ID) && blank(env.EBAY_VERIFICATION_TOKEN)) {
     throw new Error("EBAY_VERIFICATION_TOKEN est obligatoire hors local quand eBay est configuré");
@@ -197,6 +217,17 @@ export function loadChannelConfig(source: NodeJS.ProcessEnv = process.env): Chan
     deletionEndpoint: `${publicApi.replace(/\/$/, "")}/webhooks/ebay/account-deletion`,
   };
 
+  const fakeEtsy = env.ETSY_ENV === "fake";
+  const etsy: EtsyConfig = {
+    mode: env.ETSY_ENV,
+    available: fakeEtsy || (!blank(env.ETSY_KEYSTRING) && !blank(env.ETSY_SHARED_SECRET)),
+    keystring: fakeEtsy ? FAKE_ETSY_KEYSTRING : (env.ETSY_KEYSTRING ?? ""),
+    sharedSecret: fakeEtsy ? FAKE_ETSY_SECRET : (env.ETSY_SHARED_SECRET ?? ""),
+    apiBaseUrl: fakeEtsy ? `${api}/dev/fake-etsy` : "https://api.etsy.com",
+    authorizeUrl: fakeEtsy ? `${web}/api/dev/fake-etsy/oauth/connect` : "https://www.etsy.com/oauth/connect",
+    redirectUri: `${web}/api/channels/etsy/callback`,
+  };
+
   return {
     env,
     publicApiUrl: publicApi,
@@ -209,6 +240,7 @@ export function loadChannelConfig(source: NodeJS.ProcessEnv = process.env): Chan
     shopify,
     woo,
     ebay,
+    etsy,
   };
 }
 
@@ -236,5 +268,14 @@ export const createEbayClient = (config: EbayConfig, fetchImpl?: typeof fetch) =
     apizBaseUrl: config.apizBaseUrl,
     authBaseUrl: config.authBaseUrl,
     siteUrl: config.siteUrl,
+    fetch: fetchImpl,
+  });
+
+export const createEtsyClient = (config: EtsyConfig, fetchImpl?: typeof fetch) =>
+  new EtsyClient({
+    keystring: config.keystring,
+    sharedSecret: config.sharedSecret,
+    apiBaseUrl: config.apiBaseUrl,
+    authorizeUrl: config.authorizeUrl,
     fetch: fetchImpl,
   });

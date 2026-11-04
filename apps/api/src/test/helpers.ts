@@ -2,10 +2,12 @@ import { prisma } from "@hub/db";
 import {
   FakeDepop,
   FakeEbay,
+  FakeEtsy,
   FakeShopify,
   FakeWoo,
   createDepopClient,
   createEbayClient,
+  createEtsyClient,
   createShopifyClient,
   createWooClient,
   loadChannelConfig,
@@ -31,6 +33,7 @@ export function createTestApp() {
   const fakeShopify = new FakeShopify();
   const fakeWoo = new FakeWoo();
   const fakeEbay = new FakeEbay();
+  const fakeEtsy = new FakeEtsy();
   const config = loadChannelConfig({
     APP_ENV: "local",
     NODE_ENV: "test",
@@ -44,15 +47,25 @@ export function createTestApp() {
   const shopify = createShopifyClient(config.shopify, fakeShopify.fetch);
   const woo = createWooClient(config.woo, fakeWoo.fetch);
   const ebay = createEbayClient(config.ebay, fakeEbay.fetch);
+  const etsy = createEtsyClient(config.etsy, fakeEtsy.fetch);
   const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: TEST_WEB_URL }), {
     prisma,
     mailer,
     storage,
-    channels: { config, depop, shopify, woo, ebay, queue, fakeDepop, fakeShopify, fakeWoo, fakeEbay },
+    channels: { config, depop, shopify, woo, ebay, etsy, queue, fakeDepop, fakeShopify, fakeWoo, fakeEbay, fakeEtsy },
   });
   // Ce que reçoit le worker : les tests exécutent les jobs avec queue.drain(channelDeps).
-  const channelDeps: ChannelDeps = { prisma, cipher: config.cipher, media: config.media, depop, shopify, woo, ebay };
-  return { app, mailer, storage, queue, fakeDepop, fakeShopify, fakeWoo, fakeEbay, config, channelDeps };
+  // Etsy veut les fichiers des photos : le worker des tests les lit dans le stockage en mémoire.
+  const loadPhoto = async (photoId: string) => {
+    const photo = await prisma.productPhoto.findUniqueOrThrow({ where: { id: photoId } });
+    const obj = await storage.get(photo.storageKey);
+    if (!obj) throw new Error(`photo ${photoId} absente du stockage`);
+    const chunks: Buffer[] = [];
+    for await (const c of obj.body) chunks.push(c as Buffer);
+    return { data: new Uint8Array(Buffer.concat(chunks)), contentType: obj.contentType ?? "image/jpeg", filename: `${photoId}.jpg` };
+  };
+  const channelDeps: ChannelDeps = { prisma, cipher: config.cipher, media: config.media, depop, shopify, woo, ebay, etsy, loadPhoto };
+  return { app, mailer, storage, queue, fakeDepop, fakeShopify, fakeWoo, fakeEbay, fakeEtsy, config, channelDeps };
 }
 
 export async function resetDatabase() {

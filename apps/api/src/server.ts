@@ -2,10 +2,12 @@ import { prisma } from "@hub/db";
 import {
   FakeDepop,
   FakeEbay,
+  FakeEtsy,
   FakeShopify,
   FakeWoo,
   createDepopClient,
   createEbayClient,
+  createEtsyClient,
   createShopifyClient,
   createWooClient,
   loadChannelConfig,
@@ -24,6 +26,7 @@ const fakeDepop = channelConfig.depop.mode === "fake" ? new FakeDepop() : undefi
 const fakeShopify = channelConfig.shopify.mode === "fake" ? new FakeShopify() : undefined;
 const fakeWoo = channelConfig.woo.mode === "fake" ? new FakeWoo() : undefined;
 const fakeEbay = channelConfig.ebay.mode === "fake" ? new FakeEbay() : undefined;
+const fakeEtsy = channelConfig.etsy.mode === "fake" ? new FakeEtsy() : undefined;
 const queue = new BullJobQueue(env.REDIS_URL ?? "redis://localhost:6379");
 const app = buildApp(env, {
   prisma,
@@ -35,11 +38,13 @@ const app = buildApp(env, {
     shopify: createShopifyClient(channelConfig.shopify, fakeShopify?.fetch),
     woo: createWooClient(channelConfig.woo, fakeWoo?.fetch),
     ebay: createEbayClient(channelConfig.ebay, fakeEbay?.fetch),
+    etsy: createEtsyClient(channelConfig.etsy, fakeEtsy?.fetch),
     queue,
     fakeDepop,
     fakeShopify,
     fakeWoo,
     fakeEbay,
+    fakeEtsy,
   },
 });
 app.addHook("onClose", () => queue.close());

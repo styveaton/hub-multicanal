@@ -2,11 +2,12 @@
 
 import { AlertTriangle, Info } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { CHANNEL_INTEGRATION, FEE_NOTES, PERCENT_BPS_MAX, PERCENT_BPS_MIN, applyPriceRule, feePreview, formatMoney, type PriceRule } from "@hub/shared";
+import { CHANNEL_INTEGRATION, FEE_NOTES, type EtsyDetails, PERCENT_BPS_MAX, PERCENT_BPS_MIN, applyPriceRule, feePreview, formatMoney, type PriceRule } from "@hub/shared";
 import { Alert } from "../Alert";
 import { useI18n } from "../../i18n/I18nProvider";
 import { api, centsToInput, parseMoney, type ChannelSettings, type ChannelWarning, type ProductDetail } from "../../lib/api";
 import { DepopFields, depopDetailsFrom, depopFormFrom } from "./DepopFields";
+import { EtsyFields } from "./EtsyFields";
 import { ListingCard } from "./ListingCard";
 
 type PriceMode = PriceRule["mode"];
@@ -38,8 +39,13 @@ export function ChannelPanel({
   const isShopify = settings.channel === "SHOPIFY";
   const isWoo = settings.channel === "WOOCOMMERCE";
   const isEbay = settings.channel === "EBAY";
-  // Catégorie facultative : Shopify (type de produit), WooCommerce (étiquette), eBay (suggérée par eBay).
-  const categoryOptional = isShopify || isWoo || isEbay;
+  const isEtsy = settings.channel === "ETSY";
+  // Catégorie facultative : Shopify (type de produit), WooCommerce (étiquette), eBay et Etsy (trouvée d'après le titre).
+  const categoryOptional = isShopify || isWoo || isEbay || isEtsy;
+  const [etsyDetails, setEtsyDetails] = useState<EtsyDetails>(() => ({
+    whoMade: settings.details?.whoMade,
+    whenMade: settings.details?.whenMade,
+  }));
   const [depopForm, setDepopForm] = useState(() => depopFormFrom(settings.details));
   const [publishing, setPublishing] = useState(false);
   const [notConnected, setNotConnected] = useState(false);
@@ -78,7 +84,7 @@ export function ChannelPanel({
     if (typeof rule === "string") return fail(rule);
     // Depop n'a pas de titre : la limite de titre ne s'applique pas.
     if (!isDepop && title.trim().length > settings.titleMax) return fail(c.titleTooLong(label, settings.titleMax));
-    const details = isDepop ? depopDetailsFrom(depopForm, c.depop.shippingInvalid) : undefined;
+    const details = isDepop ? depopDetailsFrom(depopForm, c.depop.shippingInvalid) : isEtsy ? etsyDetails : undefined;
     if (typeof details === "string") return fail(details);
     const res = await api<ChannelSettings>(`/products/${product.id}/channels/${settings.channel}`, {
       method: "PUT",
@@ -130,6 +136,9 @@ export function ChannelPanel({
   const warningText = (w: ChannelWarning) => {
     if (w.code === "title_too_long") return c.warnings.title_too_long(label, w.length, w.max);
     if (w.code === "category_missing") return c.warnings.category_missing(label);
+    if (w.code === "etsy_too_many_options") return c.warnings.etsy_too_many_options(w.max);
+    if (w.code === "etsy_who_made_missing" || w.code === "etsy_when_made_missing") return c.warnings[w.code]();
+    if (w.code === "price_too_low" && isEtsy) return c.etsy.priceTooLow(w.sku);
     return c.warnings[w.code](w.sku);
   };
 
@@ -144,6 +153,8 @@ export function ChannelPanel({
                 ? c.depop.hint
                 : isEbay
                   ? c.ebayHint
+                  : isEtsy
+                    ? c.etsyHint
                   : isShopify
                   ? c.shopifyHint
                   : isWoo
@@ -174,7 +185,7 @@ export function ChannelPanel({
             </span>
           </label>
           <label className="field">
-            {isEbay ? c.categoryEbay : isShopify ? c.categoryShopify : isWoo ? c.categoryWoo : c.category(label)}
+            {isEtsy ? c.categoryEtsy : isEbay ? c.categoryEbay : isShopify ? c.categoryShopify : isWoo ? c.categoryWoo : c.category(label)}
             {categoryOptional && (
               <>
                 {" "}
@@ -185,10 +196,11 @@ export function ChannelPanel({
               className="input"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder={isEbay ? c.categoryPlaceholderEbay : isShopify || isWoo ? c.categoryPlaceholderShopify : c.categoryPlaceholder}
+              placeholder={isEtsy ? c.categoryPlaceholderEtsy : isEbay ? c.categoryPlaceholderEbay : isShopify || isWoo ? c.categoryPlaceholderShopify : c.categoryPlaceholder}
             />
-            <span className="field-hint">{isEbay ? c.categoryEbayHint : isShopify || isWoo ? c.categoryOptionalHint : c.categoryHint}</span>
+            <span className="field-hint">{isEtsy ? c.categoryEtsyHint : isEbay ? c.categoryEbayHint : isShopify || isWoo ? c.categoryOptionalHint : c.categoryHint}</span>
           </label>
+          {isEtsy && <EtsyFields details={etsyDetails} onChange={setEtsyDetails} />}
             </>
           )}
 

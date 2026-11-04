@@ -49,6 +49,7 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
     shopify: app.channels.shopify,
     woo: app.channels.woo,
     ebay: app.channels.ebay,
+    etsy: app.channels.etsy,
   });
   const propagate = (change: StockChange) =>
     propagateStock({ prisma: app.prisma, enqueue: app.channels.queue.add.bind(app.channels.queue) }, change.productIds);

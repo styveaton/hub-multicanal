@@ -57,10 +57,15 @@ Ces canaux sont déjà dans l'application (onglets de la fiche produit). La publ
 - [ ] Créer les clés API dans le Developer Portal (developer.walmart.com) : `WALMART_CLIENT_ID`, `WALMART_CLIENT_SECRET`
 - [ ] Pour proposer l'app à d'autres vendeurs : demander le statut **Solution Provider**
 
-**Etsy**
-- [ ] Créer une application sur etsy.com/developers (API v3, OAuth 2)
+**Etsy** (intégration codée et testée contre un faux Etsy, `ETSY_ENV=fake`)
+- [ ] Créer une application sur etsy.com/developers (Open API v3, OAuth 2 avec PKCE)
+- [ ] Déclarer l'adresse de retour : `https://<domaine du site>/api/channels/etsy/callback`
 - [ ] Demander l'accès **commercial** (l'accès personnel ne sert qu'à sa propre boutique)
-- [ ] Reporter `ETSY_API_KEY` (keystring) et le secret partagé
+- [ ] Reporter `ETSY_KEYSTRING` et `ETSY_SHARED_SECRET` (page « Your Apps »), puis `ETSY_ENV=live`
+- Droits demandés au vendeur : listings_r, listings_w, listings_d, shops_r, shops_w, transactions_r
+- Chaque vendeur doit avoir un profil d'expédition Etsy. S'il n'a pas de profil de préparation,
+  OmniList en crée un (« prêt à expédier sous 1 à 3 jours »).
+- Etsy n'envoie pas de webhook de commande : les ventes arrivent par le relevé (toutes les 2 min).
 
 **Shopify** (intégration codée et testée contre un faux Shopify, `SHOPIFY_ENV=fake`)
 - [ ] Créer un compte Shopify Partner (partners.shopify.com), puis une application publique et une boutique de développement pour essayer

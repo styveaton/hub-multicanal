@@ -5,6 +5,7 @@ import {
   ChannelApiError,
   DEPOP_SCOPES,
   EBAY_SCOPES,
+  ETSY_SCOPES,
   PUBLISHABLE_CHANNELS,
   SHOPIFY_SCOPES,
   normalizeShopDomain,
@@ -17,7 +18,7 @@ import {
 import { HttpError } from "../lib/errors.js";
 import { requireAuth, requirePermission } from "../plugins/auth.js";
 
-/** Canaux branchés de bout en bout : eBay, Depop, Shopify, WooCommerce. */
+/** Canaux branchés de bout en bout : eBay, Etsy, Depop, Shopify, WooCommerce. */
 export const SUPPORTED_CHANNELS: ReadonlySet<Channel> = new Set(PUBLISHABLE_CHANNELS);
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
@@ -60,6 +61,7 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
 
   const availability = (channel: Channel) => {
     if (channel === "EBAY") return { available: config.ebay.available, testMode: config.ebay.mode !== "production" };
+    if (channel === "ETSY") return { available: config.etsy.available, testMode: config.etsy.mode === "fake" };
     if (channel === "DEPOP") return { available: config.depop.available, testMode: config.depop.mode !== "production" };
     if (channel === "SHOPIFY") return { available: config.shopify.available, testMode: config.shopify.mode === "fake" };
     if (channel === "WOOCOMMERCE") return { available: config.woo.available, testMode: config.woo.mode === "fake" };
@@ -90,7 +92,7 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
                 status: c.status,
                 username: c.externalUsername,
                 // Boutique reliée (Shopify : *.myshopify.com ; WooCommerce : adresse du site).
-                account: channel === "DEPOP" || channel === "EBAY" ? null : c.externalAccountId,
+                account: channel === "SHOPIFY" || channel === "WOOCOMMERCE" ? c.externalAccountId : null,
                 connectedAt: c.createdAt,
                 settings: c.settings as { shipFromState?: string; postalCode?: string; policies?: { names?: string[] } },
               }
@@ -137,6 +139,14 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
     if (channel === "EBAY") {
       const state = await saveState(request, channel, {});
       return { url: app.channels.ebay.authorizeUrl(state, EBAY_SCOPES) };
+    }
+
+    if (channel === "ETSY") {
+      const verifier = randomToken(48);
+      const state = await saveState(request, channel, { verifier });
+      return {
+        url: app.channels.etsy.authorizeUrl({ state, redirectUri: config.etsy.redirectUri, codeChallenge: pkceChallenge(verifier), scopes: ETSY_SCOPES }),
+      };
     }
 
     const verifier = randomToken(48); // 64 caractères, dans les bornes PKCE (43 à 128)
@@ -225,6 +235,7 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
     shopify: app.channels.shopify,
     woo: app.channels.woo,
     ebay: app.channels.ebay,
+    etsy: app.channels.etsy,
   });
 
   // Retour du canal après l'accord (ou le refus) du vendeur.
@@ -309,6 +320,30 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
           connectedById: userId,
         };
         await app.prisma.channelConnection.upsert({ where, create: { organizationId, channel: "EBAY", ...data }, update: data });
+        return back({ connected: key });
+      }
+
+      if (channel.data === "ETSY") {
+        const { etsy } = app.channels;
+        const tokens = await etsy.exchangeCode(code, config.etsy.redirectUri, config.cipher.decrypt(saved.codeVerifierEnc));
+        const me = await etsy.getMe(tokens.access_token);
+        if (!me.shop_id) return back({ error: "etsy_no_shop", channel: key });
+        const shop = await etsy.getShop(tokens.access_token, me.shop_id);
+        const previous = await app.prisma.channelConnection.findUnique({ where });
+        // Même boutique : on garde les profils d'expédition et de préparation déjà choisis.
+        const kept = previous && previous.externalAccountId === String(shop.shop_id) ? (previous.settings as object) : {};
+        const data = {
+          status: "CONNECTED" as const,
+          externalAccountId: String(shop.shop_id),
+          externalUsername: shop.shop_name,
+          accessTokenEnc: config.cipher.encrypt(tokens.access_token),
+          refreshTokenEnc: config.cipher.encrypt(tokens.refresh_token),
+          accessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+          scopes: ETSY_SCOPES.join(" "),
+          settings: { ...kept, shopId: shop.shop_id, shopName: shop.shop_name, currency: shop.currency_code },
+          connectedById: userId,
+        };
+        await app.prisma.channelConnection.upsert({ where, create: { organizationId, channel: "ETSY", ...data }, update: data });
         return back({ connected: key });
       }
 

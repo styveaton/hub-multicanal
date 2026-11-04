@@ -4,6 +4,7 @@ import {
   CHANNEL_QUEUE,
   createDepopClient,
   createEbayClient,
+  createEtsyClient,
   createShopifyClient,
   createWooClient,
   loadChannelConfig,
@@ -15,7 +16,7 @@ import {
 /**
  * Worker de synchronisation des canaux : publication et mise à jour des annonces,
  * propagation du stock après chaque vente, relevé de secours des commandes.
- * eBay, Depop, Shopify et WooCommerce sont branchés ; Etsy et les autres suivront le même chemin.
+ * eBay, Etsy, Depop, Shopify et WooCommerce sont branchés ; les autres suivront le même chemin.
  */
 const redisUrl = new URL(process.env.REDIS_URL ?? "redis://localhost:6379");
 const connection = { host: redisUrl.hostname, port: Number(redisUrl.port || 6379) };
@@ -40,6 +41,7 @@ const deps = {
   shopify: createShopifyClient(config.shopify),
   woo: createWooClient(config.woo),
   ebay: createEbayClient(config.ebay),
+  etsy: createEtsyClient(config.etsy),
   enqueue,
 };
 
@@ -59,7 +61,7 @@ const worker = new Worker(
 );
 
 worker.on("ready", () =>
-  console.log(`Worker ${CHANNEL_QUEUE} prêt (eBay : ${config.ebay.mode}, Depop : ${config.depop.mode}, Shopify : ${config.shopify.mode}, WooCommerce : ${config.woo.mode}, relevé des commandes toutes les ${config.orderPollSeconds} s)`),
+  console.log(`Worker ${CHANNEL_QUEUE} prêt (eBay : ${config.ebay.mode}, Etsy : ${config.etsy.mode}, Depop : ${config.depop.mode}, Shopify : ${config.shopify.mode}, WooCommerce : ${config.woo.mode}, relevé des commandes toutes les ${config.orderPollSeconds} s)`),
 );
 worker.on("failed", (job, err) => console.error(`[${CHANNEL_QUEUE}] job ${job?.id} (${job?.name}) échoué : ${err.message}`));
 

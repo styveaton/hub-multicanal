@@ -29,7 +29,8 @@ export function ListingCard({
   const { t } = useI18n();
   const l = t.channel.listing;
   // Textes propres au canal d'abord (ex. Depop : rupture = « marquée vendue »), puis textes communs.
-  const own = channel === "DEPOP" ? t.channel.depop.errorCodes : channel === "EBAY" ? t.channel.ebay.errorCodes : {};
+  const own =
+    channel === "DEPOP" ? t.channel.depop.errorCodes : channel === "EBAY" ? t.channel.ebay.errorCodes : channel === "ETSY" ? t.channel.etsy.errorCodes : {};
   const errorCodes: Record<string, string> = { ...l.errorCodes, ...own };
   const live = listings.some((x) => x.status === "LISTED" || x.status === "PENDING");
 

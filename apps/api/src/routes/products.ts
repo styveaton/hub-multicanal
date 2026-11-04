@@ -12,6 +12,13 @@ import {
   type DepopDepartment,
   type DepopDetails,
   type DepopIssue,
+  ETSY_WHEN_MADE,
+  ETSY_WHO_MADE,
+  etsyIssues,
+  type EtsyDetails,
+  type EtsyIssue,
+  type EtsyWhenMade,
+  type EtsyWhoMade,
   PERCENT_BPS_MAX,
   PERCENT_BPS_MIN,
   applyPriceRule,
@@ -105,6 +112,14 @@ const DepopDetailsInput = z
   })
   .strict();
 
+// Champs propres à Etsy (qui a fabriqué l'objet, et quand), obligatoires pour publier.
+const EtsyDetailsInput = z
+  .object({
+    whoMade: z.enum(ETSY_WHO_MADE.map((o) => o.id) as [EtsyWhoMade, ...EtsyWhoMade[]]).optional(),
+    whenMade: z.enum(ETSY_WHEN_MADE.map((o) => o.id) as [EtsyWhenMade, ...EtsyWhenMade[]]).optional(),
+  })
+  .strict();
+
 const ChannelInput = z.object({
   enabled: z.boolean(),
   details: z.record(z.unknown()).nullish(),
@@ -161,8 +176,9 @@ function ruleOf(row: ChannelRow | undefined): PriceRule {
 }
 
 /** Canaux où la catégorie n'est pas exigée pour publier. */
-// eBay : sans catégorie saisie, OmniList prend celle qu'eBay suggère pour le titre.
-const CATEGORY_OPTIONAL: ReadonlySet<Channel> = new Set(["EBAY", "SHOPIFY", "WOOCOMMERCE"]);
+// eBay : sans catégorie saisie, OmniList prend celle qu'eBay suggère pour le titre ;
+// Etsy : celle de l'arbre Etsy qui correspond au titre.
+const CATEGORY_OPTIONAL: ReadonlySet<Channel> = new Set(["EBAY", "ETSY", "SHOPIFY", "WOOCOMMERCE"]);
 
 function serializeChannel(p: ProductWithRelations, channel: Channel) {
   const row = p.channels.find((c) => c.channel === channel);
@@ -171,7 +187,7 @@ function serializeChannel(p: ProductWithRelations, channel: Channel) {
   const enabled = row?.enabled ?? CHANNEL_DEFAULT_ENABLED[channel];
   const details = (row?.details ?? {}) as DepopDetails;
   // Codes seulement : le front affiche le texte dans la langue de l'utilisateur.
-  const warnings: Array<{ code: "title_too_long"; length: number; max: number } | { code: "category_missing" } | DepopIssue> = [];
+  const warnings: Array<{ code: "title_too_long"; length: number; max: number } | { code: "category_missing" } | DepopIssue | EtsyIssue> = [];
   if (channel === "DEPOP") {
     // Depop n'a ni titre ni catégorie libre : ses propres contrôles remplacent les avertissements génériques.
     warnings.push(...depopWarnings(p, details, rule));
@@ -181,6 +197,10 @@ function serializeChannel(p: ProductWithRelations, channel: Channel) {
     }
     // Shopify (type de produit) et WooCommerce (étiquette) : catégorie facultative.
     if (enabled && !row?.category && !CATEGORY_OPTIONAL.has(channel)) warnings.push({ code: "category_missing" });
+    if (channel === "ETSY") {
+      const items = sellableItems(p).map((i) => ({ sku: i.sku, priceCents: applyPriceRule(i.priceCents, rule), attributes: i.attributes }));
+      warnings.push(...etsyIssues({ details: (row?.details ?? {}) as EtsyDetails, items }));
+    }
   }
   return {
     channel,
@@ -475,8 +495,9 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
     ]);
     // Les annonces en ligne sont retirées des canaux par le worker.
     for (const channel of SUPPORTED_CHANNELS) {
-      // eBay : une annonce retirée garde son article et son offre dans l'inventaire du vendeur ; on les efface aussi.
-      const skus = existing.listings.filter((l) => l.channel === channel && (l.status !== "REMOVED" || channel === "EBAY")).map((l) => l.skuCode);
+      // eBay et Etsy : une annonce retirée reste chez le vendeur (offre gardée, annonce inactive) ; on l'efface aussi.
+      const keepsRemoved = channel === "EBAY" || channel === "ETSY";
+      const skus = existing.listings.filter((l) => l.channel === channel && (l.status !== "REMOVED" || keepsRemoved)).map((l) => l.skuCode);
       if (skus.length > 0) await app.channels.queue.add({ name: "remove", data: { organizationId, channel, skus } });
     }
     for (const ph of existing.photos) {
@@ -500,7 +521,12 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
       throw new HttpError(400, "title_too_long", { max: CHANNEL_TITLE_MAX[channel] });
     }
 
-    const details = channel === "DEPOP" ? DepopDetailsInput.parse(input.details ?? {}) : undefined;
+    const details =
+      channel === "DEPOP"
+        ? DepopDetailsInput.parse(input.details ?? {})
+        : channel === "ETSY"
+          ? EtsyDetailsInput.parse(input.details ?? {})
+          : undefined;
 
     const data = {
       enabled: input.enabled,

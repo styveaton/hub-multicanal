@@ -3,6 +3,7 @@ import { applyPriceRule, type PriceRule } from "@hub/shared";
 import type { MediaSigner, TokenCipher } from "./crypto.js";
 import type { DepopClient } from "./depop/client.js";
 import type { EbayClient } from "./ebay/client.js";
+import type { EtsyClient, EtsyPhoto } from "./etsy/client.js";
 import type { ShopifyClient } from "./shopify/client.js";
 import type { WooClient } from "./woocommerce/client.js";
 
@@ -19,6 +20,9 @@ export interface ChannelDeps {
   shopify: ShopifyClient;
   woo: WooClient;
   ebay: EbayClient;
+  etsy: EtsyClient;
+  /** Fichier d'une photo (Etsy veut l'image elle-même) ; par défaut, lu par son lien signé. */
+  loadPhoto?: (photoId: string) => Promise<EtsyPhoto>;
   now?: () => Date;
 }
 

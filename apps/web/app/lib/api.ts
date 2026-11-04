@@ -1,4 +1,4 @@
-import type { Channel, ChannelIntegration, DepopDetails, DepopIssue, PriceRule } from "@hub/shared";
+import type { Channel, ChannelIntegration, DepopDetails, DepopIssue, EtsyDetails, EtsyIssue, PriceRule } from "@hub/shared";
 import fr from "../i18n/fr";
 import type { Messages } from "../i18n";
 
@@ -44,13 +44,13 @@ export interface ChannelSettings {
   preview: Array<{ variantId: string | null; sku: string; basePriceCents: number; priceCents: number; feeCents: number; netCents: number }>;
   warnings: ChannelWarning[];
   /** Champs propres au canal (Depop : rayon, type, taille, port). */
-  details: DepopDetails | null;
+  details: (DepopDetails & EtsyDetails) | null;
   /** Publication réelle possible (Depop pour l'instant). */
   publishable: boolean;
   listings: Listing[];
 }
 
-export type ChannelWarning = { code: "title_too_long"; length: number; max: number } | { code: "category_missing" } | DepopIssue;
+export type ChannelWarning = { code: "title_too_long"; length: number; max: number } | { code: "category_missing" } | DepopIssue | EtsyIssue;
 
 export type ListingStatus = "PENDING" | "LISTED" | "ERROR" | "REMOVED";
 
