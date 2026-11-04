@@ -2,7 +2,7 @@
 
 import { AlertTriangle, CheckCircle2, ExternalLink, Plug, Puzzle, Store } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { US_STATES } from "@hub/shared";
+import { CHANNEL_LABEL, CHANNELS, US_STATES, type Channel } from "@hub/shared";
 import { Alert } from "../components/Alert";
 import { AppShell } from "../components/AppShell";
 import { PageLoading } from "../components/PageLoading";
@@ -12,7 +12,7 @@ import { api, type ChannelOverview } from "../lib/api";
 
 type Notice = { kind: "success" | "error"; text: string } | null;
 
-/** Carte d'un canal branché (Depop, Shopify, WooCommerce) : connexion, réglages, déconnexion. */
+/** Carte d'un canal branché (eBay, Depop, Shopify, WooCommerce) : connexion, réglages, déconnexion. */
 function ConnectedChannelCard({ item, canManage, onChanged }: { item: ChannelOverview; canManage: boolean; onChanged: () => void }) {
   const { t } = useI18n();
   const p = t.channelsPage;
@@ -21,13 +21,15 @@ function ConnectedChannelCard({ item, canManage, onChanged }: { item: ChannelOve
   const [state, setState] = useState(item.connection?.settings.shipFromState ?? "");
   const c = item.connection;
   const isDepop = item.channel === "DEPOP";
+  const isEbay = item.channel === "EBAY";
+  const [postalCode, setPostalCode] = useState(item.connection?.settings.postalCode ?? "");
   const isShopify = item.channel === "SHOPIFY";
   const isWoo = item.channel === "WOOCOMMERCE";
   const [shop, setShop] = useState(c?.account ?? "");
   const [woo, setWoo] = useState({ storeUrl: c?.account ?? "", consumerKey: "", consumerSecret: "" });
   const showConnect = canManage && (!c || c.status === "NEEDS_REAUTH");
 
-  /** Depop et Shopify : page d'accord du canal. WooCommerce : clés vérifiées tout de suite. */
+  /** eBay, Depop et Shopify : page d'accord du canal. WooCommerce : clés vérifiées tout de suite. */
   async function connect(event?: FormEvent) {
     event?.preventDefault();
     setPending(true);
@@ -48,8 +50,9 @@ function ConnectedChannelCard({ item, canManage, onChanged }: { item: ChannelOve
   async function saveState(event: FormEvent) {
     event.preventDefault();
     setNotice(null);
-    const res = await api(`/channels/${item.channel.toLowerCase()}/settings`, { method: "PUT", body: { shipFromState: state } });
-    setNotice(res.ok ? { kind: "success", text: p.saved } : { kind: "error", text: res.message });
+    const body = isEbay ? { postalCode: postalCode.trim() } : { shipFromState: state };
+    const res = await api(`/channels/${item.channel.toLowerCase()}/settings`, { method: "PUT", body });
+    setNotice(res.ok ? { kind: "success", text: isEbay ? p.ebaySaved : p.saved } : { kind: "error", text: res.message });
     if (res.ok) onChanged();
   }
 
@@ -74,7 +77,7 @@ function ConnectedChannelCard({ item, canManage, onChanged }: { item: ChannelOve
         </div>
         {c?.status === "CONNECTED" && (
           <span className="badge badge--ok">
-            <CheckCircle2 size={14} aria-hidden /> {isDepop && c.username ? p.connectedAs(c.username) : c.username ? p.connectedShop(c.username) : p.connected(item.label)}
+            <CheckCircle2 size={14} aria-hidden /> {(isDepop || isEbay) && c.username ? p.connectedAs(c.username) : c.username ? p.connectedShop(c.username) : p.connected(item.label)}
           </span>
         )}
       </div>
@@ -109,6 +112,32 @@ function ConnectedChannelCard({ item, canManage, onChanged }: { item: ChannelOve
           )}
         </form>
       )}
+
+      {isEbay && c && (
+        <form className="form channel-settings" onSubmit={saveState}>
+          <label className="field">
+            {p.postalCode}
+            <input
+              className="input"
+              inputMode="numeric"
+              autoComplete="postal-code"
+              value={postalCode}
+              onChange={(e) => setPostalCode(e.target.value)}
+              placeholder={p.postalCodePlaceholder}
+              disabled={!canManage}
+              required
+              maxLength={10}
+            />
+            <span className="field-hint">{p.postalCodeHint}</span>
+          </label>
+          {canManage && (
+            <button className="btn btn--secondary" disabled={!postalCode.trim() || postalCode.trim() === c.settings.postalCode}>
+              {p.save}
+            </button>
+          )}
+        </form>
+      )}
+      {isEbay && c?.settings.policies?.names?.length ? <p className="muted">{p.ebayPolicies(c.settings.policies.names.join(" · "))}</p> : null}
 
       {c && item.listedCount > 0 && <p className="muted channel-count">{p.listed(item.listedCount)}</p>}
       {notice && <Alert kind={notice.kind}>{notice.text}</Alert>}
@@ -232,7 +261,8 @@ export default function ChannelsPage() {
     const connected = params.get("connected");
     const error = params.get("error");
     if (!connected && !error) return;
-    const label = (params.get("channel") ?? connected ?? "").replace(/^\w/, (ch) => ch.toUpperCase());
+    const key = (params.get("channel") ?? connected ?? "").toUpperCase();
+    const label = CHANNELS.includes(key as Channel) ? CHANNEL_LABEL[key as Channel] : key;
     setNotice(
       connected
         ? { kind: "success", text: p.connected(label) }

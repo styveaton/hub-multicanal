@@ -1,5 +1,15 @@
 import { prisma } from "@hub/db";
-import { FakeDepop, FakeShopify, FakeWoo, createDepopClient, createShopifyClient, createWooClient, loadChannelConfig } from "@hub/channels";
+import {
+  FakeDepop,
+  FakeEbay,
+  FakeShopify,
+  FakeWoo,
+  createDepopClient,
+  createEbayClient,
+  createShopifyClient,
+  createWooClient,
+  loadChannelConfig,
+} from "@hub/channels";
 import { buildApp } from "./app.js";
 import { loadEnv } from "./env.js";
 import { createSmtpMailer } from "./lib/mailer.js";
@@ -13,6 +23,7 @@ const channelConfig = loadChannelConfig();
 const fakeDepop = channelConfig.depop.mode === "fake" ? new FakeDepop() : undefined;
 const fakeShopify = channelConfig.shopify.mode === "fake" ? new FakeShopify() : undefined;
 const fakeWoo = channelConfig.woo.mode === "fake" ? new FakeWoo() : undefined;
+const fakeEbay = channelConfig.ebay.mode === "fake" ? new FakeEbay() : undefined;
 const queue = new BullJobQueue(env.REDIS_URL ?? "redis://localhost:6379");
 const app = buildApp(env, {
   prisma,
@@ -23,10 +34,12 @@ const app = buildApp(env, {
     depop: createDepopClient(channelConfig.depop, fakeDepop?.fetch),
     shopify: createShopifyClient(channelConfig.shopify, fakeShopify?.fetch),
     woo: createWooClient(channelConfig.woo, fakeWoo?.fetch),
+    ebay: createEbayClient(channelConfig.ebay, fakeEbay?.fetch),
     queue,
     fakeDepop,
     fakeShopify,
     fakeWoo,
+    fakeEbay,
   },
 });
 app.addHook("onClose", () => queue.close());

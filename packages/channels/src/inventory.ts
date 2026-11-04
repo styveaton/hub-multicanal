@@ -24,6 +24,8 @@ export interface OrderInput {
   externalOrderId: string;
   status: OrderStatus;
   buyerName?: string | null;
+  /** Identifiant de l'acheteur chez le canal (eBay : pseudo). */
+  buyerRef?: string | null;
   currency: string;
   placedAt: Date;
   lines: SaleLineInput[];
@@ -156,6 +158,7 @@ async function recordOrderOnce(prisma: PrismaClient, input: OrderInput, strict: 
         externalOrderId: input.externalOrderId,
         status: input.status,
         buyerName: input.buyerName ?? null,
+        buyerRef: input.buyerRef ?? null,
         currency: input.currency,
         totalCents: lines.reduce((sum, l) => sum + l.unitPriceCents * l.quantity, 0),
         placedAt: input.placedAt,

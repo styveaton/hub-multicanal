@@ -2,6 +2,8 @@ import { z } from "zod";
 import { MediaSigner, TokenCipher } from "./crypto.js";
 import { DepopClient } from "./depop/client.js";
 import { FAKE_DEPOP_CLIENT_ID, FAKE_DEPOP_CLIENT_SECRET } from "./depop/fake.js";
+import { EbayClient } from "./ebay/client.js";
+import { FAKE_EBAY_CLIENT_ID, FAKE_EBAY_CLIENT_SECRET } from "./ebay/fake.js";
 import { SHOPIFY_API_VERSION, ShopifyClient } from "./shopify/client.js";
 import { FAKE_SHOPIFY_CLIENT_ID, FAKE_SHOPIFY_CLIENT_SECRET } from "./shopify/fake.js";
 import { WooClient } from "./woocommerce/client.js";
@@ -28,6 +30,18 @@ const ChannelEnvSchema = z.object({
   SHOPIFY_API_VERSION: z.string().regex(/^\d{4}-\d{2}$/).optional(),
   // fake : faux WooCommerce intégré (local) ; live : la boutique WordPress du marchand.
   WOO_ENV: z.enum(["fake", "live"]).default("fake"),
+  // fake : faux eBay intégré (local) ; sandbox : eBay de test ; production : vrai eBay.
+  EBAY_ENV: z.enum(["fake", "sandbox", "production"]).default("fake"),
+  EBAY_CLIENT_ID: z.string().optional(),
+  EBAY_CLIENT_SECRET: z.string().optional(),
+  // « RuName » : nom eBay de l'adresse de retour (portail développeur › User Tokens).
+  EBAY_RUNAME: z.string().optional(),
+  // Jeton de vérification des avis « suppression de compte » (32 à 80 caractères : lettres, chiffres, _ et -).
+  EBAY_VERIFICATION_TOKEN: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{32,80}$/, "EBAY_VERIFICATION_TOKEN : 32 à 80 caractères (lettres, chiffres, _ et -)")
+    .optional()
+    .or(z.literal("")),
   // Relevé de secours des commandes (les webhooks peuvent se perdre).
   ORDER_POLL_SECONDS: z.coerce.number().int().min(15).optional(),
 });
@@ -71,6 +85,26 @@ export interface WooConfig {
   baseUrlFor: (storeUrl: string) => string;
 }
 
+export interface EbayConfig {
+  mode: ChannelEnv["EBAY_ENV"];
+  available: boolean;
+  clientId: string;
+  clientSecret: string;
+  ruName: string;
+  apiBaseUrl: string;
+  apizBaseUrl: string;
+  authBaseUrl: string;
+  siteUrl: string;
+  /** Avis « suppression de compte » : jeton choisi et adresse déclarés dans le portail eBay. */
+  verificationToken: string;
+  deletionEndpoint: string;
+}
+
+const EBAY_HOSTS = {
+  sandbox: { api: "https://api.sandbox.ebay.com", apiz: "https://apiz.sandbox.ebay.com", auth: "https://auth.sandbox.ebay.com", site: "https://sandbox.ebay.com" },
+  production: { api: "https://api.ebay.com", apiz: "https://apiz.ebay.com", auth: "https://auth.ebay.com", site: "https://www.ebay.com" },
+} as const;
+
 export interface ChannelConfig {
   env: ChannelEnv;
   /** Adresse publique de l'API (photos signées, webhooks des canaux). */
@@ -84,6 +118,7 @@ export interface ChannelConfig {
   depop: DepopConfig;
   shopify: ShopifyConfig;
   woo: WooConfig;
+  ebay: EbayConfig;
 }
 
 const blank = (v?: string) => !v || v.trim() === "";
@@ -99,6 +134,11 @@ export function loadChannelConfig(source: NodeJS.ProcessEnv = process.env): Chan
   if (!local && env.DEPOP_ENV === "fake") throw new Error("DEPOP_ENV=fake n'est autorisé qu'en local");
   if (!local && env.SHOPIFY_ENV === "fake") throw new Error("SHOPIFY_ENV=fake n'est autorisé qu'en local");
   if (!local && env.WOO_ENV === "fake") throw new Error("WOO_ENV=fake n'est autorisé qu'en local");
+  if (!local && env.EBAY_ENV === "fake") throw new Error("EBAY_ENV=fake n'est autorisé qu'en local");
+  // eBay coupe les clés d'une application qui ne répond pas aux avis « suppression de compte ».
+  if (!local && !blank(env.EBAY_CLIENT_ID) && blank(env.EBAY_VERIFICATION_TOKEN)) {
+    throw new Error("EBAY_VERIFICATION_TOKEN est obligatoire hors local quand eBay est configuré");
+  }
 
   const devSecret = env.SESSION_SECRET || "omnilist-local-dev";
   const cipher = blank(env.TOKEN_ENCRYPTION_KEY) ? TokenCipher.fromSecret(devSecret) : TokenCipher.fromBase64(env.TOKEN_ENCRYPTION_KEY!);
@@ -138,6 +178,25 @@ export function loadChannelConfig(source: NodeJS.ProcessEnv = process.env): Chan
     baseUrlFor: (storeUrl) => (env.WOO_ENV === "fake" ? `${api}/dev/fake-woo` : storeUrl),
   };
 
+  const fakeEbay = env.EBAY_ENV === "fake";
+  const ebayHosts = fakeEbay
+    ? { api: `${api}/dev/fake-ebay`, apiz: `${api}/dev/fake-ebay`, auth: `${web}/api/dev/fake-ebay`, site: `${web}/api/dev/fake-ebay` }
+    : EBAY_HOSTS[env.EBAY_ENV as "sandbox" | "production"];
+  const ebay: EbayConfig = {
+    mode: env.EBAY_ENV,
+    available: fakeEbay || (!blank(env.EBAY_CLIENT_ID) && !blank(env.EBAY_CLIENT_SECRET) && !blank(env.EBAY_RUNAME)),
+    clientId: fakeEbay ? FAKE_EBAY_CLIENT_ID : (env.EBAY_CLIENT_ID ?? ""),
+    clientSecret: fakeEbay ? FAKE_EBAY_CLIENT_SECRET : (env.EBAY_CLIENT_SECRET ?? ""),
+    // Le faux eBay renvoie directement vers OmniList ; le vrai passe par le RuName.
+    ruName: fakeEbay ? `${web}/api/channels/ebay/callback` : (env.EBAY_RUNAME ?? ""),
+    apiBaseUrl: ebayHosts.api,
+    apizBaseUrl: ebayHosts.apiz,
+    authBaseUrl: ebayHosts.auth,
+    siteUrl: ebayHosts.site,
+    verificationToken: env.EBAY_VERIFICATION_TOKEN || "omnilist-local-ebay-verification-token",
+    deletionEndpoint: `${publicApi.replace(/\/$/, "")}/webhooks/ebay/account-deletion`,
+  };
+
   return {
     env,
     publicApiUrl: publicApi,
@@ -149,6 +208,7 @@ export function loadChannelConfig(source: NodeJS.ProcessEnv = process.env): Chan
     depop,
     shopify,
     woo,
+    ebay,
   };
 }
 
@@ -166,3 +226,15 @@ export const createShopifyClient = (config: ShopifyConfig, fetchImpl?: typeof fe
   });
 
 export const createWooClient = (config: WooConfig, fetchImpl?: typeof fetch) => new WooClient({ baseUrlFor: config.baseUrlFor, fetch: fetchImpl });
+
+export const createEbayClient = (config: EbayConfig, fetchImpl?: typeof fetch) =>
+  new EbayClient({
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    ruName: config.ruName,
+    apiBaseUrl: config.apiBaseUrl,
+    apizBaseUrl: config.apizBaseUrl,
+    authBaseUrl: config.authBaseUrl,
+    siteUrl: config.siteUrl,
+    fetch: fetchImpl,
+  });

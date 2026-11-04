@@ -1,12 +1,15 @@
 import type { FastifyPluginAsync } from "fastify";
 import {
+  ebayChallengeResponse,
   importDepopOrder,
   importShopifyOrder,
   importWooOrder,
   placedBeforeConnection,
   propagateStock,
+  parseEbaySignature,
   shopifyOrderFromWebhook,
   verifyDepopWebhook,
+  verifyEbayNotification,
   verifyShopifyWebhook,
   verifyWooWebhook,
   wooDate,
@@ -27,7 +30,8 @@ interface DepopEvent {
  * Webhooks des canaux (sans session), tous signés en HMAC-SHA256 sur le corps brut :
  * - Depop : hex de « <X-Depop-Timestamp>.<corps> », secret du webhook de la boutique ;
  * - Shopify : base64 du corps (X-Shopify-Hmac-Sha256), secret de l'application ;
- * - WooCommerce : base64 du corps (X-WC-Webhook-Signature), secret choisi à la création.
+ * - WooCommerce : base64 du corps (X-WC-Webhook-Signature), secret choisi à la création ;
+ * - eBay : avis « suppression de compte », signés en ECDSA (X-EBAY-SIGNATURE, clé publique d'eBay).
  * On répond vite ; le relevé de secours rattrape tout envoi perdu.
  */
 export const webhookRoutes: FastifyPluginAsync = async (app) => {
@@ -44,6 +48,7 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
     depop: app.channels.depop,
     shopify: app.channels.shopify,
     woo: app.channels.woo,
+    ebay: app.channels.ebay,
   });
   const propagate = (change: StockChange) =>
     propagateStock({ prisma: app.prisma, enqueue: app.channels.queue.add.bind(app.channels.queue) }, change.productIds);
@@ -156,5 +161,46 @@ export const webhookRoutes: FastifyPluginAsync = async (app) => {
       }
     }
     return { received: true };
+  });
+
+  // Avis « suppression / fermeture de compte » d'eBay, obligatoire pour garder les clés Production.
+  // GET : défi de validation de l'adresse ; POST : un membre eBay (vendeur ou acheteur) a fermé son compte.
+  app.get<{ Querystring: { challenge_code?: string } }>("/ebay/account-deletion", async (request, reply) => {
+    const code = request.query.challenge_code;
+    if (!code) return reply.code(400).send({ error: "challenge_code_missing" });
+    const challengeResponse = ebayChallengeResponse(code, config.ebay.verificationToken, config.ebay.deletionEndpoint);
+    return reply.header("content-type", "application/json").send({ challengeResponse });
+  });
+
+  app.post("/ebay/account-deletion", async (request, reply) => {
+    const raw = rawOf(request.body);
+    const sig = parseEbaySignature(header(request.headers["x-ebay-signature"]));
+    // eBay attend 412 quand la signature ne correspond pas.
+    if (!sig) return reply.code(412).send({ error: "invalid_signature" });
+    let key;
+    try {
+      key = await app.channels.ebay.publicKey(sig.kid);
+    } catch (err) {
+      request.log.warn(err, "clé publique eBay introuvable : eBay renverra l'avis");
+      return reply.code(500).send({ error: "key_unavailable" });
+    }
+    if (!verifyEbayNotification(raw, sig, key)) return reply.code(412).send({ error: "invalid_signature" });
+
+    let body: { metadata?: { topic?: string }; notification?: { data?: { username?: string; userId?: string } } };
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      return reply.code(400).send({ error: "invalid_json" });
+    }
+    const data = body.notification?.data;
+    if (body.metadata?.topic === "MARKETPLACE_ACCOUNT_DELETION" && data) {
+      // Vendeur : sa connexion (jetons compris) est effacée.
+      if (data.userId) await app.prisma.channelConnection.deleteMany({ where: { channel: "EBAY", externalAccountId: data.userId } });
+      // Acheteur : son nom et son pseudo disparaissent des commandes (le reste sert à la comptabilité).
+      if (data.username) {
+        await app.prisma.order.updateMany({ where: { channel: "EBAY", buyerRef: data.username }, data: { buyerName: null, buyerRef: null } });
+      }
+    }
+    return reply.code(204).send();
   });
 };

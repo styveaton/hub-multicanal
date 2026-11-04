@@ -161,7 +161,8 @@ function ruleOf(row: ChannelRow | undefined): PriceRule {
 }
 
 /** Canaux où la catégorie n'est pas exigée pour publier. */
-const CATEGORY_OPTIONAL: ReadonlySet<Channel> = new Set(["SHOPIFY", "WOOCOMMERCE"]);
+// eBay : sans catégorie saisie, OmniList prend celle qu'eBay suggère pour le titre.
+const CATEGORY_OPTIONAL: ReadonlySet<Channel> = new Set(["EBAY", "SHOPIFY", "WOOCOMMERCE"]);
 
 function serializeChannel(p: ProductWithRelations, channel: Channel) {
   const row = p.channels.find((c) => c.channel === channel);
@@ -474,7 +475,8 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
     ]);
     // Les annonces en ligne sont retirées des canaux par le worker.
     for (const channel of SUPPORTED_CHANNELS) {
-      const skus = existing.listings.filter((l) => l.channel === channel && l.status !== "REMOVED").map((l) => l.skuCode);
+      // eBay : une annonce retirée garde son article et son offre dans l'inventaire du vendeur ; on les efface aussi.
+      const skus = existing.listings.filter((l) => l.channel === channel && (l.status !== "REMOVED" || channel === "EBAY")).map((l) => l.skuCode);
       if (skus.length > 0) await app.channels.queue.add({ name: "remove", data: { organizationId, channel, skus } });
     }
     for (const ph of existing.photos) {
@@ -540,6 +542,9 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
     if (connection.status !== "CONNECTED") throw new HttpError(409, "channel_needs_reauth");
     if (channel === "DEPOP" && !(connection.settings as { shipFromState?: string } | null)?.shipFromState) {
       throw new HttpError(409, "ship_from_missing");
+    }
+    if (channel === "EBAY" && !(connection.settings as { postalCode?: string } | null)?.postalCode) {
+      throw new HttpError(409, "ebay_location_missing");
     }
 
     const settings = serializeChannel(product, channel);

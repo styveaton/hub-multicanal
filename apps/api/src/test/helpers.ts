@@ -1,5 +1,16 @@
 import { prisma } from "@hub/db";
-import { FakeDepop, FakeShopify, FakeWoo, createDepopClient, createShopifyClient, createWooClient, loadChannelConfig, type ChannelDeps } from "@hub/channels";
+import {
+  FakeDepop,
+  FakeEbay,
+  FakeShopify,
+  FakeWoo,
+  createDepopClient,
+  createEbayClient,
+  createShopifyClient,
+  createWooClient,
+  loadChannelConfig,
+  type ChannelDeps,
+} from "@hub/channels";
 import { buildApp } from "../app.js";
 import { loadEnv } from "../env.js";
 import { MemoryMailer } from "../lib/mailer.js";
@@ -19,6 +30,7 @@ export function createTestApp() {
   const fakeDepop = new FakeDepop();
   const fakeShopify = new FakeShopify();
   const fakeWoo = new FakeWoo();
+  const fakeEbay = new FakeEbay();
   const config = loadChannelConfig({
     APP_ENV: "local",
     NODE_ENV: "test",
@@ -31,15 +43,16 @@ export function createTestApp() {
   const depop = createDepopClient(config.depop, fakeDepop.fetch);
   const shopify = createShopifyClient(config.shopify, fakeShopify.fetch);
   const woo = createWooClient(config.woo, fakeWoo.fetch);
+  const ebay = createEbayClient(config.ebay, fakeEbay.fetch);
   const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: TEST_WEB_URL }), {
     prisma,
     mailer,
     storage,
-    channels: { config, depop, shopify, woo, queue, fakeDepop, fakeShopify, fakeWoo },
+    channels: { config, depop, shopify, woo, ebay, queue, fakeDepop, fakeShopify, fakeWoo, fakeEbay },
   });
   // Ce que reçoit le worker : les tests exécutent les jobs avec queue.drain(channelDeps).
-  const channelDeps: ChannelDeps = { prisma, cipher: config.cipher, media: config.media, depop, shopify, woo };
-  return { app, mailer, storage, queue, fakeDepop, fakeShopify, fakeWoo, config, channelDeps };
+  const channelDeps: ChannelDeps = { prisma, cipher: config.cipher, media: config.media, depop, shopify, woo, ebay };
+  return { app, mailer, storage, queue, fakeDepop, fakeShopify, fakeWoo, fakeEbay, config, channelDeps };
 }
 
 export async function resetDatabase() {

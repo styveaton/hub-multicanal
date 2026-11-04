@@ -78,7 +78,7 @@ export interface ChannelOverview {
     /** Boutique reliée : *.myshopify.com ou adresse du site WooCommerce. */
     account: string | null;
     connectedAt: string;
-    settings: { shipFromState?: string };
+    settings: { shipFromState?: string; postalCode?: string; policies?: { names?: string[] } };
   } | null;
 }
 

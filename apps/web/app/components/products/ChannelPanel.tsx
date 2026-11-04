@@ -37,6 +37,9 @@ export function ChannelPanel({
   const isDepop = settings.channel === "DEPOP";
   const isShopify = settings.channel === "SHOPIFY";
   const isWoo = settings.channel === "WOOCOMMERCE";
+  const isEbay = settings.channel === "EBAY";
+  // Catégorie facultative : Shopify (type de produit), WooCommerce (étiquette), eBay (suggérée par eBay).
+  const categoryOptional = isShopify || isWoo || isEbay;
   const [depopForm, setDepopForm] = useState(() => depopFormFrom(settings.details));
   const [publishing, setPublishing] = useState(false);
   const [notConnected, setNotConnected] = useState(false);
@@ -139,7 +142,9 @@ export function ChannelPanel({
             <p className="muted">
               {isDepop
                 ? c.depop.hint
-                : isShopify
+                : isEbay
+                  ? c.ebayHint
+                  : isShopify
                   ? c.shopifyHint
                   : isWoo
                     ? c.wooHint
@@ -169,8 +174,8 @@ export function ChannelPanel({
             </span>
           </label>
           <label className="field">
-            {isShopify ? c.categoryShopify : isWoo ? c.categoryWoo : c.category(label)}
-            {(isShopify || isWoo) && (
+            {isEbay ? c.categoryEbay : isShopify ? c.categoryShopify : isWoo ? c.categoryWoo : c.category(label)}
+            {categoryOptional && (
               <>
                 {" "}
                 <span className="field-optional">{t.common.optional}</span>
@@ -180,9 +185,9 @@ export function ChannelPanel({
               className="input"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder={isShopify || isWoo ? c.categoryPlaceholderShopify : c.categoryPlaceholder}
+              placeholder={isEbay ? c.categoryPlaceholderEbay : isShopify || isWoo ? c.categoryPlaceholderShopify : c.categoryPlaceholder}
             />
-            <span className="field-hint">{isShopify || isWoo ? c.categoryOptionalHint : c.categoryHint}</span>
+            <span className="field-hint">{isEbay ? c.categoryEbayHint : isShopify || isWoo ? c.categoryOptionalHint : c.categoryHint}</span>
           </label>
             </>
           )}

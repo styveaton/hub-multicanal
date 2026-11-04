@@ -8,7 +8,7 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 | 1 – Fondations (US1) | Comptes, rôles, invitation par email, CI/CD, Docker, schéma DB, staging | **Comptes et invitations faits**, staging à faire |
 | 2 – Fiche produit maître (US4-US5) | CRUD produits et variantes, médias, adaptation par canal | **Fait** (QA manuelle à compléter) |
 | 2 bis – Depop | Connexion OAuth (PKCE), jetons chiffrés, publication et mise à jour via BullMQ, page Canaux | **Fait** contre un faux Depop ; attend les clés partenaire |
-| 3 – eBay (US3, US6-US7) | OAuth eBay et publication, en réutilisant l'architecture Depop (`packages/channels`) | À venir |
+| 3 – eBay (US3, US6-US7) | OAuth eBay, publication (annonces à variantes), stock, commandes, avis de suppression de compte | Code fait, testé contre le faux eBay ; clés Sandbox vérifiées. Reste : RuName et adresse publique (domaine) |
 | 4 – Ventes et stock (US8-US9) | Stock central, anti double vente, import des commandes | **Fait** (Depop ; les autres canaux suivront à leur branchement) |
 | 5 – TikTok Shop + Amazon | Connecteurs, mapping, quotas | À venir |
 | 6 – Facturation et lancement (US2, US10) | Stripe et paliers, dashboard, bêta fermée | À venir |
@@ -67,7 +67,8 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 ## Sprint 4 : ce qui reste
 
 - [x] **DEV** : Shopify et WooCommerce branchés sur le même moteur (publication, stock, commandes par webhook et relevé)
-- [ ] **DEV** : brancher eBay et Etsy dès que les comptes développeur sont validés
+- [x] **DEV** : brancher eBay (Inventory, Fulfillment, Account API)
+- [ ] **DEV** : brancher Etsy dès que le compte développeur est validé
 - [ ] **DEV** : expédition des commandes Depop depuis OmniList (`mark-as-shipped`)
 - [ ] **QA** : mesurer le taux de doubles ventes en bêta (objectif < 1 %) à partir du journal (`OVERSOLD`)
 - [ ] **DESIGN** : maquettes définitives des écrans Stock, Journal et Commandes

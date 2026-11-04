@@ -4,6 +4,7 @@ import { CHANNELS, CHANNEL_INTEGRATION, CHANNEL_LABEL, can, isUsState, type Chan
 import {
   ChannelApiError,
   DEPOP_SCOPES,
+  EBAY_SCOPES,
   PUBLISHABLE_CHANNELS,
   SHOPIFY_SCOPES,
   normalizeShopDomain,
@@ -16,7 +17,7 @@ import {
 import { HttpError } from "../lib/errors.js";
 import { requireAuth, requirePermission } from "../plugins/auth.js";
 
-/** Canaux branchés de bout en bout : Depop, Shopify, WooCommerce. */
+/** Canaux branchés de bout en bout : eBay, Depop, Shopify, WooCommerce. */
 export const SUPPORTED_CHANNELS: ReadonlySet<Channel> = new Set(PUBLISHABLE_CHANNELS);
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
@@ -28,6 +29,11 @@ const ChannelParam = z
 
 const DepopSettingsInput = z.object({
   shipFromState: z.string().refine(isUsState, "us_state_invalid"),
+});
+
+// Code postal américain d'où partent les colis (emplacement de stock eBay).
+const EbaySettingsInput = z.object({
+  postalCode: z.string().trim().regex(/^\d{5}(-\d{4})?$/, "postal_code_invalid"),
 });
 
 const ShopifyConnectInput = z.object({ shop: z.string().min(1).max(255) });
@@ -53,6 +59,7 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
   const publicApi = config.publicApiUrl.replace(/\/$/, "");
 
   const availability = (channel: Channel) => {
+    if (channel === "EBAY") return { available: config.ebay.available, testMode: config.ebay.mode !== "production" };
     if (channel === "DEPOP") return { available: config.depop.available, testMode: config.depop.mode !== "production" };
     if (channel === "SHOPIFY") return { available: config.shopify.available, testMode: config.shopify.mode === "fake" };
     if (channel === "WOOCOMMERCE") return { available: config.woo.available, testMode: config.woo.mode === "fake" };
@@ -83,9 +90,9 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
                 status: c.status,
                 username: c.externalUsername,
                 // Boutique reliée (Shopify : *.myshopify.com ; WooCommerce : adresse du site).
-                account: channel === "DEPOP" ? null : c.externalAccountId,
+                account: channel === "DEPOP" || channel === "EBAY" ? null : c.externalAccountId,
                 connectedAt: c.createdAt,
-                settings: c.settings as { shipFromState?: string },
+                settings: c.settings as { shipFromState?: string; postalCode?: string; policies?: { names?: string[] } },
               }
             : null,
         };
@@ -126,6 +133,11 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
     }
 
     if (channel === "WOOCOMMERCE") return connectWoo(request);
+
+    if (channel === "EBAY") {
+      const state = await saveState(request, channel, {});
+      return { url: app.channels.ebay.authorizeUrl(state, EBAY_SCOPES) };
+    }
 
     const verifier = randomToken(48); // 64 caractères, dans les bornes PKCE (43 à 128)
     const state = await saveState(request, channel, { verifier });
@@ -212,6 +224,7 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
     depop: app.channels.depop,
     shopify: app.channels.shopify,
     woo: app.channels.woo,
+    ebay: app.channels.ebay,
   });
 
   // Retour du canal après l'accord (ou le refus) du vendeur.
@@ -224,6 +237,8 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
     if (!can(request.auth.role, "channels:manage")) return back({ error: "forbidden", channel: key });
 
     const { code, state, error } = request.query;
+    // Refus sur la page eBay : l'adresse « refusée » déclarée chez eBay ne transmet pas toujours le state.
+    if (channel.data === "EBAY" && error && !state) return back({ error: "access_denied", channel: key });
     const saved = state ? await app.prisma.oAuthState.findUnique({ where: { stateHash: sha256Hex(state) } }) : null;
     if (saved) await app.prisma.oAuthState.delete({ where: { id: saved.id } });
     const valid =
@@ -275,6 +290,28 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
         return back({ connected: key });
       }
 
+      if (channel.data === "EBAY") {
+        const { ebay } = app.channels;
+        const tokens = await ebay.exchangeCode(code);
+        const user = await ebay.getUser(tokens.access_token);
+        const previous = await app.prisma.channelConnection.findUnique({ where });
+        // Même compte eBay : on garde le code postal et les règles de vente déjà choisis.
+        const kept = previous && previous.externalAccountId === user.userId ? (previous.settings as object) : {};
+        const data = {
+          status: "CONNECTED" as const,
+          externalAccountId: user.userId,
+          externalUsername: user.username,
+          accessTokenEnc: config.cipher.encrypt(tokens.access_token),
+          refreshTokenEnc: config.cipher.encrypt(tokens.refresh_token),
+          accessTokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
+          scopes: EBAY_SCOPES.join(" "),
+          settings: { ...kept, username: user.username },
+          connectedById: userId,
+        };
+        await app.prisma.channelConnection.upsert({ where, create: { organizationId, channel: "EBAY", ...data }, update: data });
+        return back({ connected: key });
+      }
+
       const { depop } = app.channels;
       const tokens = await depop.exchangeCode(code, config.depop.redirectUri, config.cipher.decrypt(saved.codeVerifierEnc));
       const shop = await depop.getShop(tokens.access_token);
@@ -309,15 +346,15 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
     return back({ connected: key });
   });
 
-  // Réglages du compte connecté (Depop : État d'où partent les colis).
+  // Réglages du compte connecté (Depop : État d'où partent les colis ; eBay : code postal d'expédition).
   app.put<{ Params: { channel: string } }>("/:channel/settings", canManage, async (request) => {
     const channel = ChannelParam.parse(request.params.channel);
-    if (channel !== "DEPOP") throw new HttpError(400, "channel_not_supported");
-    const input = DepopSettingsInput.parse(request.body);
+    if (channel !== "DEPOP" && channel !== "EBAY") throw new HttpError(400, "channel_not_supported");
+    const input = channel === "DEPOP" ? DepopSettingsInput.parse(request.body) : EbaySettingsInput.parse(request.body);
     const where = { organizationId_channel: { organizationId: request.auth!.organizationId, channel } };
     const existing = await app.prisma.channelConnection.findUnique({ where });
     if (!existing) throw new HttpError(404, "not_connected");
-    const settings = { ...(existing.settings as object), shipFromState: input.shipFromState };
+    const settings = { ...(existing.settings as object), ...input };
     await app.prisma.channelConnection.update({ where, data: { settings } });
     return { settings };
   });

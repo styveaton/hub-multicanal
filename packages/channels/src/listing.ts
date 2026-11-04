@@ -2,6 +2,7 @@ import type { Channel, Prisma, PrismaClient } from "@hub/db";
 import { applyPriceRule, type PriceRule } from "@hub/shared";
 import type { MediaSigner, TokenCipher } from "./crypto.js";
 import type { DepopClient } from "./depop/client.js";
+import type { EbayClient } from "./ebay/client.js";
 import type { ShopifyClient } from "./shopify/client.js";
 import type { WooClient } from "./woocommerce/client.js";
 
@@ -17,6 +18,7 @@ export interface ChannelDeps {
   depop: DepopClient;
   shopify: ShopifyClient;
   woo: WooClient;
+  ebay: EbayClient;
   now?: () => Date;
 }
 

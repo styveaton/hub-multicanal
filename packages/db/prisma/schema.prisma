@@ -337,6 +337,8 @@ model Order {
   externalOrderId String
   status          OrderStatus  @default(PAID)
   buyerName       String?
+  // Identifiant de l'acheteur chez le canal (eBay : pseudo), pour effacer ses données à sa demande.
+  buyerRef        String?
   currency        String       @default("USD")
   totalCents      Int
   placedAt        DateTime
@@ -350,6 +352,7 @@ model Order {
 
   @@unique([organizationId, channel, externalOrderId])
   @@index([organizationId, placedAt])
+  @@index([channel, buyerRef])
 }
 
 model OrderLine {

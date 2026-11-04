@@ -259,6 +259,19 @@ const fr = {
       price_too_low: (sku?: string) => `${sku ?? "Article"} : Depop demande un prix d'au moins 1 $.`,
       ship_from_missing: () => "Choisissez l'État d'expédition sur la page Canaux.",
     },
+    ebayHint: "eBay a une API officielle : OmniList crée l'annonce (une annonce à variantes si la fiche en a) et garde prix, photos et stock à jour.",
+    categoryEbay: "Catégorie eBay",
+    categoryPlaceholderEbay: "ex. 57988, ou « veste en jean »",
+    categoryEbayHint: "Numéro de catégorie eBay, ou des mots-clés. Laissé vide : OmniList prend la catégorie qu'eBay suggère pour le titre.",
+    ebay: {
+      errorCodes: {
+        out_of_stock: "Rupture de stock : annonce terminée sur eBay, republiée au réassort.",
+        ebay_location_missing: "Indiquez le code postal d'expédition eBay sur la page Canaux.",
+        ebay_policies_missing:
+          "Créez vos règles d'expédition, de paiement et de retour dans eBay (Compte › Préférences du vendeur › Règles de vente), puis republiez.",
+        ebay_app_token: "eBay ne répond pas pour l'instant : nouvel essai automatique.",
+      } as Record<string, string>,
+    },
     shopifyHint: "Shopify a une API officielle : OmniList crée le produit (une variante par SKU) et garde prix, photos et stock à jour.",
     wooHint: "WooCommerce a une API officielle : OmniList crée le produit sur votre site et garde prix, photos et stock à jour.",
     categoryShopify: "Type de produit Shopify",
@@ -336,6 +349,11 @@ const fr = {
     wooHint: "Dans WordPress : WooCommerce › Réglages › Avancé › API REST › Ajouter une clé, avec les droits Lecture/Écriture. Le site doit être en HTTPS.",
     wooTestHint: "Mode test : n'importe quelle clé « ck_… » / « cs_… » est acceptée.",
     wooConnect: "Connecter le site",
+    postalCode: "Code postal d'expédition",
+    postalCodeHint: "D'où partent vos colis. eBay s'en sert pour les délais et les frais de port. Obligatoire pour publier.",
+    postalCodePlaceholder: "ex. 10001",
+    ebayPolicies: (names: string) => `Règles de vente eBay utilisées : ${names}`,
+    ebaySaved: "Code postal d'expédition enregistré.",
     checking: "Vérification…",
     shipFrom: "État d'expédition",
     shipFromHint: "Depop l'affiche aux acheteurs. Obligatoire pour publier.",
@@ -453,6 +471,7 @@ const fr = {
     channel_not_connected: "Connectez d'abord ce compte sur la page Canaux.",
     channel_needs_reauth: "L'accès au compte a expiré : reconnectez-le sur la page Canaux.",
     ship_from_missing: "Choisissez l'État d'expédition sur la page Canaux.",
+    ebay_location_missing: "Indiquez le code postal d'expédition eBay sur la page Canaux.",
     listing_incomplete: "Complétez les champs signalés avant de publier.",
     channel_not_supported: "Ce canal n'est pas encore disponible.",
     channel_unavailable: "Ce canal n'est pas encore activé (clés API manquantes).",
@@ -470,6 +489,7 @@ const fr = {
   /** Détail d'une erreur de validation renvoyée par l'API (code dans le message Zod). */
   validation: {
     woo_key_invalid: "La clé client commence par ck_.",
+    postal_code_invalid: "Code postal américain à 5 chiffres (ex. 10001).",
     woo_secret_invalid: "La clé secrète commence par cs_.",
     price_invalid: "Le prix doit être un montant supérieur à 0.",
     sku_format: "SKU : lettres, chiffres, point, tiret ou souligné uniquement.",

@@ -4,10 +4,26 @@ Ces étapes demandent de créer des comptes ou d'accepter des conditions au nom 
 
 ## 1. eBay : compte développeur (bloque le Sprint 3)
 Tâche ClickUp : « Demande d'accès développeur eBay (production) »
-- [ ] Créer un compte sur developer.ebay.com
-- [ ] Créer un jeu de clés **Sandbox** et reporter `EBAY_CLIENT_ID` et `EBAY_CLIENT_SECRET` dans `.env`
-- [ ] Déposer la demande d'accès **Production**
-- [ ] Configurer l'URL de redirection OAuth (RuName) une fois le domaine staging connu
+- [x] Créer un compte sur developer.ebay.com
+- [x] Créer un jeu de clés **Sandbox** « OmniList » et reporter `EBAY_CLIENT_ID` et `EBAY_CLIENT_SECRET` dans `.env`
+- [x] Créer le jeu de clés **Production** « OmniList » (clés rangées dans `env/production.env`, ignoré par git)
+- [ ] Activer les clés Production (Application Keys › Production › **Notifications**) : eBay les laisse
+      désactivées tant que l'adresse des avis « suppression / fermeture de compte » n'est pas validée.
+      Pas de dispense possible : OmniList garde des données d'acheteurs eBay (commandes).
+      - Adresse : `https://<adresse publique de l'API>/webhooks/ebay/account-deletion` (= `PUBLIC_API_URL` + `/webhooks/ebay/account-deletion`)
+      - Jeton de vérification : la valeur de `EBAY_VERIFICATION_TOKEN` (déjà générée dans `env/production.env`)
+      - eBay envoie un défi à l'enregistrement : l'API doit être en ligne avec ces deux valeurs avant de cliquer sur « Save ».
+- [ ] Créer l'adresse de retour OAuth (RuName), en Sandbox puis en Production
+      (Application Keys › User Tokens › « Get a Token from eBay via Your Application » › Add eBay Redirect URL) :
+      - Auth accepted URL : `https://<domaine du site>/api/channels/ebay/callback`
+      - Auth declined URL : `https://<domaine du site>/api/channels/ebay/callback?error=access_denied`
+      - Privacy policy URL : la page de politique de confidentialité d'OmniList
+      - Reporter le nom généré (ex. `OneHandb-OmniList-xxxx`) dans `EBAY_RUNAME`
+- [ ] Sur le serveur : `EBAY_ENV=sandbox` (staging) ou `production`, avec `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`,
+      `EBAY_RUNAME` et `EBAY_VERIFICATION_TOKEN`
+- Chaque vendeur doit avoir des règles de vente eBay (expédition, paiement, retours). OmniList prend les
+  premières de chaque type ; sans elles, l'annonce affiche l'erreur et le lien à suivre.
+- En local, `EBAY_ENV=fake` : faux eBay intégré, aucune clé ni domaine nécessaire.
 
 ## 2. Amazon SP-API (bloque le Sprint 5)
 Tâche ClickUp : « Demande d'accès Amazon SP-API »

@@ -100,7 +100,7 @@ describe("connexion Depop", () => {
       testMode: true,
       connection: null,
     });
-    expect(items.find((c: { channel: string }) => c.channel === "EBAY")).toMatchObject({ supported: false });
+    expect(items.find((c: { channel: string }) => c.channel === "AMAZON")).toMatchObject({ supported: false });
   });
 
   it("OAuth + PKCE : la boutique est connectée, jetons chiffrés en base", async () => {
@@ -157,7 +157,7 @@ describe("connexion Depop", () => {
   });
 
   it("canal pas encore branché : refusé", async () => {
-    expect((await app.inject({ method: "POST", url: "/channels/ebay/connect", cookies: owner })).json().error).toBe("channel_not_supported");
+    expect((await app.inject({ method: "POST", url: "/channels/amazon/connect", cookies: owner })).json().error).toBe("channel_not_supported");
   });
 });
 
