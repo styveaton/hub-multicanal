@@ -14,7 +14,8 @@ Tâche ClickUp : « Demande d'accès développeur eBay (production) »
       - Adresse : `https://<adresse publique de l'API>/webhooks/ebay/account-deletion` (= `PUBLIC_API_URL` + `/webhooks/ebay/account-deletion`)
       - Jeton de vérification : la valeur de `EBAY_VERIFICATION_TOKEN` (déjà générée dans `env/production.env`)
       - eBay envoie un défi à l'enregistrement : l'API doit être en ligne avec ces deux valeurs avant de cliquer sur « Save ».
-- [ ] Créer l'adresse de retour OAuth (RuName), en Sandbox puis en Production
+- [x] Créer l'adresse de retour OAuth (RuName) en Production : `One_Hand_busine-OneHandb-OmniLi-zmdppafs` (4 novembre 2026,
+      OAuth, confidentialité https://omnilist.1handbiz.com/privacy). Sandbox : à créer si besoin d'essais.
       (Application Keys › User Tokens › « Get a Token from eBay via Your Application » › Add eBay Redirect URL) :
       - Auth accepted URL : `https://<domaine du site>/api/channels/ebay/callback`
       - Auth declined URL : `https://<domaine du site>/api/channels/ebay/callback?error=access_denied`
