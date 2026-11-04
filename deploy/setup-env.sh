@@ -11,6 +11,8 @@ DOMAIN="${1:-omnilist.1handbiz.com}"
 FILE="${OMNILIST_ENV_FILE:-env/production.env}"
 [ -f "$FILE" ] || cp env/production.env.example "$FILE"
 chmod 600 "$FILE"
+# Fichier copié depuis Windows : retire les fins de ligne CRLF (sinon « KEY=\r » passe pour une valeur remplie).
+sed -i 's/\r$//' "$FILE"
 
 get() { grep -E "^$1=" "$FILE" | head -n1 | cut -d= -f2- || true; }
 put() {

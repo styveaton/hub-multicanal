@@ -102,6 +102,12 @@ Un serveur **openresty** (famille nginx) écoute déjà sur les ports 80 et 443.
 2. Relance l'étape 5.
 3. Mets `http://172.17.0.1:3100` comme destination.
 
+**Avec Nginx Proxy Manager sur un autre serveur du réseau local** (cas actuel : NPM reçoit 69.251.219.67, OmniList tourne sur proserver `10.0.0.23`) :
+1. Crée `deploy/.env` avec `OMNILIST_BIND=10.0.0.23`. OmniList n'écoute alors que sur le réseau local, pas sur internet.
+2. Relance l'étape 5.
+3. Dans NPM, crée un Proxy Host qui redirige vers `http://10.0.0.23:3100`.
+4. Ne redirige pas le port 3100 sur la box ou le routeur.
+
 **Avec nginx configuré à la main**, utilise ce bloc (le certificat se crée avec `certbot --nginx -d omnilist.1handbiz.com`) :
 
 ```nginx
