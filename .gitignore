@@ -10,3 +10,7 @@ coverage/
 env/*.env
 !env/*.env.example
 .DS_Store
+
+# Déploiement : clés du stockage des photos et sauvegardes du serveur
+deploy/seaweedfs/s3.json
+deploy/backups/

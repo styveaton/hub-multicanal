@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.next
+**/*.tsbuildinfo
+**/coverage
+.git
+.env
+.env.*
+env/*.env
+deploy/seaweedfs/s3.json
+deploy/backups
+*.log

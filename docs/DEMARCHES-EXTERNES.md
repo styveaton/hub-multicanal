@@ -42,8 +42,8 @@ Tâche ClickUp : « Demande d'accès TikTok Shop Partner »
 Tâche ClickUp : « Compte Stripe + environnements staging/production »
 - [ ] Créer le compte Stripe et rester en **mode test** jusqu'au Sprint 6
 - [ ] Reporter la clé `sk_test_...` dans `.env` (local) et dans les secrets staging
-- [ ] Réserver les noms de domaine (ex. `app.<domaine>` et `staging.<domaine>`)
-- [ ] Choisir l'hébergeur (API, worker, Postgres et Redis managés) et créer les projets staging et production
+- [ ] Créer le sous-domaine `omnilist.1handbiz.com` (DNS gérés par le Mail-in-a-Box box.gessiia.com)
+- [x] Choisir l'hébergeur : le VPS existant, avec Docker Compose (pas à pas : [DEPLOIEMENT-VPS.md](DEPLOIEMENT-VPS.md))
 
 ## 5. Outillage du poste
 - [ ] Installer **Docker Desktop** (WSL 2) pour lancer Postgres, Redis et Mailpit
