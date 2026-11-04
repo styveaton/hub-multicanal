@@ -18,6 +18,7 @@ const en: Messages = {
     no: "No",
     cancel: "Cancel",
     language: "Language",
+    privacy: "Privacy",
   },
   brand: {
     headline1: "List once.",

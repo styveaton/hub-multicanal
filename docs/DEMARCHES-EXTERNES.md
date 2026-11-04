@@ -7,7 +7,8 @@ Tâche ClickUp : « Demande d'accès développeur eBay (production) »
 - [x] Créer un compte sur developer.ebay.com
 - [x] Créer un jeu de clés **Sandbox** « OmniList » et reporter `EBAY_CLIENT_ID` et `EBAY_CLIENT_SECRET` dans `.env`
 - [x] Créer le jeu de clés **Production** « OmniList » (clés rangées dans `env/production.env`, ignoré par git)
-- [ ] Activer les clés Production (Application Keys › Production › **Notifications**) : eBay les laisse
+- [x] Activer les clés Production (fait le 4 novembre 2026 : endpoint validé, notification de test reçue, jeton Production obtenu)
+      (Application Keys › Production › **Notifications**) : eBay les laisse
       désactivées tant que l'adresse des avis « suppression / fermeture de compte » n'est pas validée.
       Pas de dispense possible : OmniList garde des données d'acheteurs eBay (commandes).
       - Adresse : `https://<adresse publique de l'API>/webhooks/ebay/account-deletion` (= `PUBLIC_API_URL` + `/webhooks/ebay/account-deletion`)
@@ -42,7 +43,7 @@ Tâche ClickUp : « Demande d'accès TikTok Shop Partner »
 Tâche ClickUp : « Compte Stripe + environnements staging/production »
 - [ ] Créer le compte Stripe et rester en **mode test** jusqu'au Sprint 6
 - [ ] Reporter la clé `sk_test_...` dans `.env` (local) et dans les secrets staging
-- [ ] Créer le sous-domaine `omnilist.1handbiz.com` (DNS gérés par le Mail-in-a-Box box.gessiia.com)
+- [x] Créer le sous-domaine `omnilist.1handbiz.com` (DNS gérés par le Mail-in-a-Box box.gessiia.com), en ligne en HTTPS
 - [x] Choisir l'hébergeur : le VPS existant, avec Docker Compose (pas à pas : [DEPLOIEMENT-VPS.md](DEPLOIEMENT-VPS.md))
 
 ## 5. Outillage du poste

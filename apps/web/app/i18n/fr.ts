@@ -19,6 +19,7 @@ const fr = {
     no: "Non",
     cancel: "Annuler",
     language: "Langue",
+    privacy: "Confidentialité",
   },
   brand: {
     headline1: "Publiez une fois.",

@@ -29,7 +29,7 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 ## Sprint 1 : ce qui reste
 
 - [x] **DEV** : déploiement sur le VPS avec Docker Compose (`deploy/`, guide [DEPLOIEMENT-VPS.md](DEPLOIEMENT-VPS.md)), pile de production testée en local
-- [ ] **DEV** : mise en ligne sur `omnilist.1handbiz.com` (DNS, proxy HTTPS, emails)
+- [x] **DEV** : mise en ligne sur https://omnilist.1handbiz.com (4 novembre 2026 : proserver 10.0.0.23, Nginx Proxy Manager sur un autre serveur)
 - [ ] **DEV** : limiter les tentatives de connexion (anti-force brute) et purger les sessions expirées
 - [ ] **DEV** : mot de passe oublié (non demandé par US1, utile avant la bêta)
 - [x] **DESIGN** : charte OmniList appliquée (couleurs, Inter, logo, emails) à toutes les pages existantes, voir docs/CHARTE.md

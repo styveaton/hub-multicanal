@@ -14,7 +14,7 @@ export function AuthLayout({ title, subtitle, children, footer }: {
   children: ReactNode;
   footer?: ReactNode;
 }) {
-  const { brand } = useI18n().t;
+  const { brand, common } = useI18n().t;
   return (
     <div className="auth">
       <aside className="auth-brand">
@@ -41,6 +41,9 @@ export function AuthLayout({ title, subtitle, children, footer }: {
           {children}
           {footer && <p className="auth-footer">{footer}</p>}
         </div>
+        <p className="auth-legal">
+          <Link href="/privacy">{common.privacy}</Link>
+        </p>
       </main>
     </div>
   );
