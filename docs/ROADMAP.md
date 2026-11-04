@@ -70,7 +70,7 @@ Ordre repris de ClickUp (dossier « Hub Multi-canal E-commerce »).
 - [x] **DEV** : Shopify et WooCommerce branchés sur le même moteur (publication, stock, commandes par webhook et relevé)
 - [x] **DEV** : brancher eBay (Inventory, Fulfillment, Account API)
 - [x] **DEV** : brancher Etsy (Open API v3 : annonces, photos, inventaire à variantes, commandes)
-- [ ] **DEV** : passer Etsy en `ETSY_ENV=live` dès que l'application Etsy est approuvée
+- [x] **DEV** : passer Etsy en `ETSY_ENV=live` dès que l'application Etsy est approuvée
 - [ ] **DEV** : expédition des commandes Depop depuis OmniList (`mark-as-shipped`)
 - [ ] **QA** : mesurer le taux de doubles ventes en bêta (objectif < 1 %) à partir du journal (`OVERSOLD`)
 - [ ] **DESIGN** : maquettes définitives des écrans Stock, Journal et Commandes

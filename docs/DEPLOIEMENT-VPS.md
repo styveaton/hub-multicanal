@@ -70,7 +70,7 @@ $ cd /opt/omnilist
      SMTP_PASS=<mot de passe de la boîte>
      MAIL_FROM=OmniList <no-reply@1handbiz.com>
      ```
-4. **Etsy, tant que l'application n'est pas approuvée** : mets un `#` devant `ETSY_KEYSTRING=`. Sinon le bouton « Connecter Etsy » apparaît mais la connexion échoue. Retire le `#` après l'approbation, puis relance (étape 8).
+4. **Etsy** : l'application est approuvée (4 novembre 2026). `ETSY_ENV=live`, `ETSY_KEYSTRING` et `ETSY_SHARED_SECRET` doivent être remplis et sans `#` devant.
 5. **eBay** reste masqué tant que `EBAY_RUNAME` est vide. C'est normal (voir l'étape 9).
 
 ## Étape 5. Lancer OmniList

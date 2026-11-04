@@ -147,9 +147,17 @@ export class EtsyClient {
     return this.token({ grant_type: "refresh_token", client_id: this.opts.keystring, refresh_token: refreshToken });
   }
 
-  /** Le jeton commence par l'identifiant du vendeur ; /users/me donne aussi sa boutique. */
-  getMe(token: string): Promise<{ user_id: number; shop_id: number }> {
-    return this.call("GET", `${APP}/users/me`, token);
+  /**
+   * Le jeton commence par l'identifiant du vendeur ; /users/me donne aussi sa boutique.
+   * Compte sans boutique : Etsy répond 404 « Could not find a shop for User » ; on renvoie shop_id null.
+   */
+  async getMe(token: string): Promise<{ user_id: number; shop_id: number | null }> {
+    try {
+      return await this.call<{ user_id: number; shop_id: number }>("GET", `${APP}/users/me`, token);
+    } catch (err) {
+      if (err instanceof ChannelApiError && err.status === 404) return { user_id: Number(token.split(".")[0]) || 0, shop_id: null };
+      throw err;
+    }
   }
 
   getShop(token: string, shopId: number): Promise<EtsyShop> {

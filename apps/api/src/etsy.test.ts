@@ -96,6 +96,7 @@ beforeEach(async () => {
   fakeEtsy.receipts.length = 0;
   fakeEtsy.processingProfiles.length = 0;
   fakeEtsy.noShippingProfile = false;
+  fakeEtsy.noShop = false;
   owner = await signup("proprio@exemple.fr", "Boutique A");
 });
 
@@ -120,6 +121,13 @@ describe("Etsy : connexion", () => {
     expect(c).toMatchObject({ status: "CONNECTED", externalAccountId: String(FAKE_ETSY_SHOP_ID), externalUsername: "OmniListVintage" });
     expect(c.settings).toMatchObject({ shopId: FAKE_ETSY_SHOP_ID, shopName: "OmniListVintage", currency: "USD" });
     expect(c.accessTokenEnc).not.toContain("fake_");
+  });
+
+  it("compte Etsy sans boutique (404 d'Etsy) : message clair, pas de connexion", async () => {
+    fakeEtsy.noShop = true;
+    const { res } = await connectEtsy(owner);
+    expect(res.headers.location).toBe(`${TEST_WEB_URL}/channels?error=etsy_no_shop&channel=etsy`);
+    expect(await prisma.channelConnection.count()).toBe(0);
   });
 
   it("retour falsifié : pas de connexion", async () => {

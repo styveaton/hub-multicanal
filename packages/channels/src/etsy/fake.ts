@@ -44,6 +44,8 @@ export class FakeEtsy {
   readonly receipts: EtsyReceipt[] = [];
   /** Boutique sans profil d'expédition (tests). */
   noShippingProfile = false;
+  /** Compte Etsy sans boutique (tests) : /users/me répond 404 comme le vrai Etsy. */
+  noShop = false;
   readonly processingProfiles: Array<{ readiness_state_id: number; readiness_state: string }> = [];
   private readonly codes = new Map<string, { challenge: string; redirectUri: string; expiresAt: number }>();
   private readonly accessTokens = new Map<string, number>();
@@ -138,6 +140,9 @@ export class FakeEtsy {
     if (!token || exp === undefined || exp <= this.now()) return fail(401, "invalid_token");
     const form = () => new URLSearchParams(typeof body === "string" ? body : "");
 
+    if (method === "GET" && path === "/v3/application/users/me" && this.noShop) {
+      return fail(404, `Could not find a shop for User with user_id = ${FAKE_ETSY_USER_ID}`);
+    }
     if (method === "GET" && path === "/v3/application/users/me") return json(200, { user_id: FAKE_ETSY_USER_ID, shop_id: FAKE_ETSY_SHOP_ID });
     const shop = `/v3/application/shops/${FAKE_ETSY_SHOP_ID}`;
     if (method === "GET" && path === shop) {

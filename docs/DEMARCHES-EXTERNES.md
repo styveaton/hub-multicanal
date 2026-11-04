@@ -61,14 +61,14 @@ Ces canaux sont déjà dans l'application (onglets de la fiche produit). La publ
 
 **Etsy** (intégration codée et testée contre un faux Etsy, `ETSY_ENV=fake`)
 - [x] Créer une application sur etsy.com/developers : « personal app » OmniList, créée le 3 novembre 2026,
-      en attente d'approbation par Etsy (aucune notification en cas de refus : vérifier la page « Your Apps »)
-- [ ] Une fois l'application approuvée, déclarer les adresses de retour :
+      approuvée le 4 novembre 2026 (statut « Personal Access », 5 requêtes/s, 5 000/jour)
+- [x] Déclarer les adresses de retour :
       `http://localhost:3000/api/channels/etsy/callback` (essais locaux) et
       `https://omnilist.1handbiz.com/api/channels/etsy/callback`
-- [ ] Remplacer le « Website URL » (dépôt GitHub pour l'instant) par `https://omnilist.1handbiz.com` quand le site est en ligne
+- [x] Remplacer le « Website URL » par `https://omnilist.1handbiz.com`
 - [ ] Demander l'accès **commercial** (l'accès personnel ne sert qu'à sa propre boutique)
 - [x] Reporter `ETSY_KEYSTRING` et `ETSY_SHARED_SECRET` dans `.env` et `env/production.env` (ignorés par git)
-- [ ] Passer `ETSY_ENV=live` une fois la clé active
+- [x] Passer `ETSY_ENV=live` une fois la clé active (activé sur le serveur le 4 novembre 2026)
 - Droits demandés au vendeur : listings_r, listings_w, listings_d, shops_r, shops_w, transactions_r
 - Chaque vendeur doit avoir un profil d'expédition Etsy. S'il n'a pas de profil de préparation,
   OmniList en crée un (« prêt à expédier sous 1 à 3 jours »).
