@@ -222,6 +222,19 @@ function DevicesCard() {
 
   useEffect(() => void load(), [load]);
 
+  // L'extension installée dans ce navigateur confirme qu'elle a récupéré le jeton.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window || event.origin !== window.location.origin) return;
+      if ((event.data as { type?: string; ok?: boolean } | null)?.type !== "omnilist:extension-paired" || !event.data.ok) return;
+      setToken(null);
+      setNotice({ kind: "success", text: p.extensionPaired });
+      void load();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [load, p]);
+
   async function add(event: FormEvent) {
     event.preventDefault();
     setPending(true);

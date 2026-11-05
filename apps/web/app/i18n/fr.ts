@@ -440,6 +440,7 @@ const fr = {
     deviceNamePlaceholder: "ex. Chrome du bureau",
     addDevice: "Relier un navigateur",
     tokenTitle: "Jeton à coller dans l'extension",
+    extensionPaired: "L'extension de ce navigateur a récupéré le jeton : elle est reliée.",
     tokenHint: "Il ne sera plus affiché. Collez-le dans l'extension OmniList Assistant, puis fermez ce cadre.",
     copy: "Copier",
     copied: "Copié",

@@ -434,6 +434,7 @@ const en: Messages = {
     deviceNamePlaceholder: "e.g. Office Chrome",
     addDevice: "Link a browser",
     tokenTitle: "Token to paste into the extension",
+    extensionPaired: "The extension in this browser picked up the token: it is linked.",
     tokenHint: "It won't be shown again. Paste it into the OmniList Assistant extension, then close this box.",
     copy: "Copy",
     copied: "Copied",
