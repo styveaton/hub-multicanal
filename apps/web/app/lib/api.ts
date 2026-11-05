@@ -82,6 +82,25 @@ export interface ChannelOverview {
   } | null;
 }
 
+/** Site assisté (extension) : interrupteur OmniList, accord du vendeur, plafond, tâches en attente. */
+export interface AssistedSiteState {
+  channel: Channel;
+  site: { enabled: boolean; selectorsVersion: number; reason: string | null };
+  defaultDailyCap: number;
+  consentVersion: number;
+  consent: { version: number; acceptedAt: string; dailyCap: number; pausedAt: string | null; pauseReason: string | null } | null;
+  openTasks: number;
+}
+
+/** Navigateur où l'extension est reliée à la boutique. */
+export interface ExtensionDevice {
+  id: string;
+  name: string;
+  lastSeenAt: string | null;
+  extensionVersion: string | null;
+  createdAt: string;
+}
+
 export interface ProductDetail {
   id: string;
   title: string;

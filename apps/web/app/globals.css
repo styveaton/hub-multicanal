@@ -429,6 +429,24 @@ fieldset:disabled { opacity: 0.5; }
 .channel-upcoming-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
 .channel-upcoming { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0; border-bottom: 1px solid var(--border); }
 .channel-upcoming:last-child { border-bottom: 0; }
+/* Sites via l'extension : accord du vendeur, plafond, navigateurs reliés. */
+.channels-side { display: grid; gap: 1.25rem; align-content: start; }
+.channels-side > * { min-width: 0; }
+.assisted-sites, .device-token { display: grid; gap: 1rem; }
+.assisted-site-list, .device-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.assisted-site { display: grid; gap: 0.85rem; padding: 1rem 0; border-top: 1px solid var(--border); }
+.assisted-site:first-child { border-top: 0; padding-top: 0; }
+.assisted-site .card-header { margin-bottom: 0; flex-wrap: wrap; }
+.assisted-site h3 { font-size: 1rem; margin: 0 0 0.2rem; }
+.assisted-site .note { margin-top: 0; }
+.consent-form { display: grid; gap: 0.85rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.consent-form h3 { font-size: 1rem; margin: 0; }
+.consent-points { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.45rem; font-size: 0.9rem; }
+.consent-cap { max-width: 8rem; }
+.checkbox { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
+.checkbox input { width: 1.1rem; height: 1.1rem; margin-top: 0.15rem; flex: none; accent-color: var(--blue); }
+.device-token { gap: 0.5rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--blue-50); }
+.device-token code { padding: 0.5rem 0.65rem; background: var(--white); border: 1px solid var(--border); border-radius: 8px; user-select: all; }
 .form-row--2 .field { flex: 1 1 200px; }
 .size-matches { list-style: none; margin: 0.4rem 0 0; padding: 0; display: grid; gap: 0.3rem; font-size: 0.9rem; }
 .size-matches li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.4rem 0.7rem; border-radius: var(--radius-sm); background: var(--surface); }

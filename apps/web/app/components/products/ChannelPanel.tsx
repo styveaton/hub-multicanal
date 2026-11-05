@@ -121,7 +121,8 @@ export function ChannelPanel({
 
   // Envoi en cours : on relit l'état des annonces toutes les 2 secondes (1 minute au plus).
   const polls = useRef(0);
-  const waiting = settings.listings.some((l) => l.status === "PENDING");
+  // Sites assistés : l'annonce attend le vendeur dans l'extension, inutile de relire en boucle.
+  const waiting = settings.listings.some((l) => l.status === "PENDING" && l.errorCode !== "awaiting_seller");
   useEffect(() => {
     if (!waiting || polls.current >= 30) return;
     const timer = setTimeout(async () => {

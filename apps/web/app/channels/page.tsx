@@ -2,8 +2,9 @@
 
 import { AlertTriangle, CheckCircle2, ExternalLink, Plug, Puzzle, Store } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { CHANNEL_LABEL, CHANNELS, US_STATES, type Channel } from "@hub/shared";
+import { CHANNEL_LABEL, CHANNELS, US_STATES, isAssistedChannel, type Channel } from "@hub/shared";
 import { Alert } from "../components/Alert";
+import { AssistedSites } from "../components/channels/AssistedSites";
 import { AppShell } from "../components/AppShell";
 import { PageLoading } from "../components/PageLoading";
 import { useSession } from "../components/useSession";
@@ -273,7 +274,9 @@ export default function ChannelsPage() {
 
   if (!me || !items) return <PageLoading />;
   const live = items.filter((i) => i.supported);
-  const upcoming = items.filter((i) => !i.supported);
+  // Sites assistés (extension) : section à part, avec l'accord du vendeur.
+  const assisted = items.filter((i) => isAssistedChannel(i.channel)).map((i) => i.channel);
+  const upcoming = items.filter((i) => !i.supported && !isAssistedChannel(i.channel));
 
   return (
     <AppShell me={me} active="channels" onLogout={logout}>
@@ -288,13 +291,16 @@ export default function ChannelsPage() {
         {live.map((item) => (
           <ConnectedChannelCard key={item.channel} item={item} canManage={canManage} onChanged={load} />
         ))}
-        <section className="card" aria-label={p.soon}>
-          <ul className="channel-upcoming-list">
-            {upcoming.map((item) => (
-              <UpcomingChannelCard key={item.channel} item={item} />
-            ))}
-          </ul>
-        </section>
+        <div className="channels-side">
+          <AssistedSites canManage={canManage} channels={assisted} />
+          <section className="card" aria-label={p.soon}>
+            <ul className="channel-upcoming-list">
+              {upcoming.map((item) => (
+                <UpcomingChannelCard key={item.channel} item={item} />
+              ))}
+            </ul>
+          </section>
+        </div>
       </div>
     </AppShell>
   );
