@@ -20,3 +20,4 @@ export * from "./woocommerce/sync.js";
 export * from "./inventory.js";
 export * from "./jobs.js";
 export * from "./publish.js";
+export * from "./assisted.js";

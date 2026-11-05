@@ -70,7 +70,7 @@ export function createTestApp() {
 
 export async function resetDatabase() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE "SyncLog", "OrderLine", "Order", "ChannelListing", "ChannelConnection", "OAuthState", "ProductChannel", "Sku", "ProductVariant", "ProductPhoto", "Product",
+    `TRUNCATE TABLE "BrowserTask", "ExtensionDevice", "ChannelConsent", "SiteSwitch", "SyncLog", "OrderLine", "Order", "ChannelListing", "ChannelConnection", "OAuthState", "ProductChannel", "Sku", "ProductVariant", "ProductPhoto", "Product",
       "Session", "Invitation", "Membership", "Organization", "User" CASCADE`,
   );
 }

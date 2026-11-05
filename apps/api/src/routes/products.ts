@@ -25,12 +25,17 @@ import {
   feePreview,
   type Channel,
   type PriceRule,
+  ASSISTED_CHANNELS,
+  isAssistedChannel,
 } from "@hub/shared";
 import { HttpError } from "../lib/errors.js";
 import { requirePermission } from "../plugins/auth.js";
-import { listingNeedsSync } from "@hub/channels";
+import { listingNeedsSync, siteSwitch } from "@hub/channels";
 import { SUPPORTED_CHANNELS } from "./channels.js";
 import { photoUrl } from "./photos.js";
+
+/** Canaux où une fiche peut être publiée : canaux à API branchés et sites assistés (extension). */
+const LISTABLE_CHANNELS: ReadonlySet<Channel> = new Set([...SUPPORTED_CHANNELS, ...ASSISTED_CHANNELS]);
 
 // ---------------------------------------------------------------------------
 // Validation (US4 : champs obligatoires, 1 à 12 photos, article unique ou variantes)
@@ -221,7 +226,7 @@ function serializeChannel(p: ProductWithRelations, channel: Channel) {
     warnings,
     details: row?.details ?? null,
     // Publication réelle possible pour ce canal (Depop pour l'instant).
-    publishable: SUPPORTED_CHANNELS.has(channel),
+    publishable: LISTABLE_CHANNELS.has(channel),
     listings: p.listings
       .filter((l) => l.channel === channel)
       .map((l) => ({
@@ -494,7 +499,7 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
       app.prisma.product.delete({ where: { id: existing.id } }),
     ]);
     // Les annonces en ligne sont retirées des canaux par le worker.
-    for (const channel of SUPPORTED_CHANNELS) {
+    for (const channel of LISTABLE_CHANNELS) {
       // eBay et Etsy : une annonce retirée reste chez le vendeur (offre gardée, annonce inactive) ; on l'efface aussi.
       const keepsRemoved = channel === "EBAY" || channel === "ETSY";
       const skus = existing.listings.filter((l) => l.channel === channel && (l.status !== "REMOVED" || keepsRemoved)).map((l) => l.skuCode);
@@ -547,7 +552,7 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
 
     const updated = await loadProduct(app, organizationId, product.id);
     // Déjà en ligne : on renvoie les nouveaux réglages (ou on retire l'annonce si le canal est désactivé).
-    if (SUPPORTED_CHANNELS.has(channel) && hasActiveListings(updated, channel)) {
+    if (LISTABLE_CHANNELS.has(channel) && hasActiveListings(updated, channel)) {
       await markPending(updated, channel);
       await app.channels.queue.add({ name: "publish", data: { productId: updated.id, channel } });
     }
@@ -557,20 +562,30 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
   // Publication (ou mise à jour) de la fiche sur un canal branché : le worker fait l'envoi.
   app.post<{ Params: { id: string; channel: string } }>("/:id/channels/:channel/publish", canManage, async (request) => {
     const channel = ChannelParam.parse(request.params.channel);
-    if (!SUPPORTED_CHANNELS.has(channel)) throw new HttpError(400, "channel_not_supported");
+    if (!LISTABLE_CHANNELS.has(channel)) throw new HttpError(400, "channel_not_supported");
     const { organizationId } = request.auth!;
     const product = await loadProduct(app, organizationId, request.params.id);
 
-    const connection = await app.prisma.channelConnection.findUnique({
-      where: { organizationId_channel: { organizationId, channel } },
-    });
-    if (!connection) throw new HttpError(409, "channel_not_connected");
-    if (connection.status !== "CONNECTED") throw new HttpError(409, "channel_needs_reauth");
-    if (channel === "DEPOP" && !(connection.settings as { shipFromState?: string } | null)?.shipFromState) {
-      throw new HttpError(409, "ship_from_missing");
-    }
-    if (channel === "EBAY" && !(connection.settings as { postalCode?: string } | null)?.postalCode) {
-      throw new HttpError(409, "ebay_location_missing");
+    if (isAssistedChannel(channel)) {
+      // Site sans API : il faut l'accord du vendeur (écran des risques) et le site actif chez OmniList.
+      const consent = await app.prisma.channelConsent.findUnique({ where: { organizationId_channel: { organizationId, channel } } });
+      if (!consent) throw new HttpError(409, "consent_missing");
+      if (consent.pausedAt) throw new HttpError(409, "channel_paused", { reason: consent.pauseReason });
+      if (!(await siteSwitch(app, channel)).enabled) {
+        throw new HttpError(503, "channel_unavailable");
+      }
+    } else {
+      const connection = await app.prisma.channelConnection.findUnique({
+        where: { organizationId_channel: { organizationId, channel } },
+      });
+      if (!connection) throw new HttpError(409, "channel_not_connected");
+      if (connection.status !== "CONNECTED") throw new HttpError(409, "channel_needs_reauth");
+      if (channel === "DEPOP" && !(connection.settings as { shipFromState?: string } | null)?.shipFromState) {
+        throw new HttpError(409, "ship_from_missing");
+      }
+      if (channel === "EBAY" && !(connection.settings as { postalCode?: string } | null)?.postalCode) {
+        throw new HttpError(409, "ebay_location_missing");
+      }
     }
 
     const settings = serializeChannel(product, channel);
@@ -600,7 +615,7 @@ export const productRoutes: FastifyPluginAsync = async (app) => {
 
   /** Fiche maître modifiée : on renvoie la mise à jour aux canaux où elle est en ligne. */
   async function syncListedChannels(p: ProductWithRelations) {
-    for (const channel of SUPPORTED_CHANNELS) {
+    for (const channel of LISTABLE_CHANNELS) {
       if (!hasActiveListings(p, channel)) continue;
       await markPending(p, channel);
       await app.channels.queue.add({ name: "publish", data: { productId: p.id, channel } });

@@ -1,4 +1,6 @@
 import type { Channel, ChannelConnection, PrismaClient } from "@hub/db";
+import { ASSISTED_CHANNELS } from "@hub/shared";
+import { publishAssisted, removeAssisted } from "./assisted.js";
 import { pollDepopOrders } from "./depop/orders.js";
 import { pollEbayOrders, publishToEbay, removeFromEbay } from "./ebay/sync.js";
 import { pollEtsyOrders, publishToEtsy, removeFromEtsy } from "./etsy/sync.js";
@@ -20,7 +22,7 @@ const HANDLERS: Partial<
     {
       publish: (deps: ChannelDeps, productId: string) => Promise<void>;
       remove: (deps: ChannelDeps, organizationId: string, skus: string[]) => Promise<void>;
-      poll: (deps: ChannelDeps, connection: ChannelConnection) => Promise<string[]>;
+      poll?: (deps: ChannelDeps, connection: ChannelConnection) => Promise<string[]>;
     }
   >
 > = {
@@ -29,7 +31,20 @@ const HANDLERS: Partial<
   DEPOP: { publish: publishToDepop, remove: removeFromDepop, poll: pollDepopOrders },
   SHOPIFY: { publish: publishToShopify, remove: removeFromShopify, poll: pollShopifyOrders },
   WOOCOMMERCE: { publish: publishToWoo, remove: removeFromWoo, poll: pollWooOrders },
+  // Sites assistés : des tâches pour l'extension du vendeur, aucun appel au site.
+  ...Object.fromEntries(
+    ASSISTED_CHANNELS.map((channel) => [
+      channel,
+      {
+        publish: (deps: ChannelDeps, productId: string) => publishAssisted(deps, productId, channel),
+        remove: (deps: ChannelDeps, organizationId: string, skus: string[]) => removeAssisted(deps, organizationId, channel, skus),
+      },
+    ]),
+  ),
 };
+
+/** Canaux dont les annonces suivent le stock : canaux à API et sites assistés. */
+export const SYNCED_CHANNELS: readonly Channel[] = [...PUBLISHABLE_CHANNELS, ...ASSISTED_CHANNELS];
 
 export type ChannelJob =
   | { name: "publish"; data: { productId: string; channel: Channel } }
@@ -55,7 +70,7 @@ export const listingNeedsSync = (l: { status: string; errorCode: string | null }
 export async function syncJobsFor(prisma: PrismaClient, productIds: string[]): Promise<ChannelJob[]> {
   if (productIds.length === 0) return [];
   const listings = await prisma.channelListing.findMany({
-    where: { productId: { in: productIds }, channel: { in: [...PUBLISHABLE_CHANNELS] } },
+    where: { productId: { in: productIds }, channel: { in: [...SYNCED_CHANNELS] } },
     select: { productId: true, channel: true, status: true, errorCode: true },
   });
   const keys = new Set(listings.filter(listingNeedsSync).map((l) => `${l.channel}:${l.productId}`));

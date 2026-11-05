@@ -23,6 +23,7 @@ import type { Storage } from "./lib/storage.js";
 import { registerSessionAuth } from "./plugins/auth.js";
 import { authRoutes } from "./routes/auth.js";
 import { channelRoutes } from "./routes/channels.js";
+import { extensionAdminRoutes, extensionDeviceRoutes } from "./routes/extension.js";
 import { fakeDepopRoutes } from "./routes/fake-depop.js";
 import { fakeEbayRoutes } from "./routes/fake-ebay.js";
 import { fakeEtsyRoutes } from "./routes/fake-etsy.js";
@@ -99,6 +100,8 @@ export function buildApp(env: Env, deps: AppDeps) {
   // Sans session : les canaux téléchargent les photos par lien signé.
   app.register(publicPhotoRoutes, { prefix: "/public/photos" });
   app.register(webhookRoutes, { prefix: "/webhooks" });
+  // Extension « OmniList Assistant » : jeton du navigateur, sans cookie.
+  app.register(extensionDeviceRoutes, { prefix: "/extension" });
   if (deps.channels.fakeDepop) app.register(fakeDepopRoutes, { prefix: "/dev/fake-depop" });
   if (deps.channels.fakeShopify) app.register(fakeShopifyRoutes, { prefix: "/dev/fake-shopify" });
   if (deps.channels.fakeWoo) app.register(fakeWooRoutes, { prefix: "/dev/fake-woo" });
@@ -115,6 +118,7 @@ export function buildApp(env: Env, deps: AppDeps) {
     scope.register(channelRoutes, { prefix: "/channels" });
     scope.register(stockRoutes, { prefix: "/stock" });
     scope.register(orderRoutes, { prefix: "/orders" });
+    scope.register(extensionAdminRoutes, { prefix: "/extension" });
   });
 
   return app;

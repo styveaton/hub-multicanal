@@ -36,11 +36,11 @@ model User {
 
 // Un compte vendeur (l'entreprise). Porte l'abonnement Stripe (Sprint 6).
 model Organization {
-  id               String         @id @default(cuid())
+  id               String              @id @default(cuid())
   name             String
-  stripeCustomerId String?        @unique
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  stripeCustomerId String?             @unique
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   memberships      Membership[]
   invitations      Invitation[]
   sessions         Session[]
@@ -52,6 +52,9 @@ model Organization {
   listings         ChannelListing[]
   orders           Order[]
   syncLogs         SyncLog[]
+  devices          ExtensionDevice[]
+  browserTasks     BrowserTask[]
+  consents         ChannelConsent[]
 }
 
 // Session de connexion : le cookie porte un jeton aléatoire, seul son hash est stocké.
@@ -287,25 +290,25 @@ enum ListingStatus {
 
 // Une annonce sur un canal, par SKU (article unique ou variante).
 model ChannelListing {
-  id             String        @id @default(cuid())
-  organizationId String
-  productId      String?
-  channel        Channel
-  skuCode        String
-  status         ListingStatus @default(PENDING)
-  externalId     String?
+  id               String        @id @default(cuid())
+  organizationId   String
+  productId        String?
+  channel          Channel
+  skuCode          String
+  status           ListingStatus @default(PENDING)
+  externalId       String?
   // Shopify / WooCommerce : produit parent (une annonce par SKU = une variante du produit).
   externalParentId String?
   // Données techniques du canal (ex. Shopify : article de stock, empreinte des photos envoyées).
-  externalMeta   Json?
-  externalUrl    String?
-  errorCode      String?
-  errorMessage   String?
-  publishedAt    DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  product        Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  externalMeta     Json?
+  externalUrl      String?
+  errorCode        String?
+  errorMessage     String?
+  publishedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product          Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, channel, skuCode])
   @@index([productId])
@@ -398,4 +401,95 @@ model SyncLog {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Extension « OmniList Assistant » : sites sans API (Poshmark, Mercari, Facebook, Grailed).
+// L'extension prépare le formulaire du site ; le vendeur clique lui-même sur le bouton final.
+// Voir docs/PLAN-EXTENSION.md.
+// ---------------------------------------------------------------------------
+
+// Navigateur relié à la boutique. Le jeton (affiché une seule fois) est stocké haché.
+model ExtensionDevice {
+  id               String        @id @default(cuid())
+  organizationId   String
+  userId           String
+  name             String
+  tokenHash        String        @unique
+  lastSeenAt       DateTime?
+  extensionVersion String?
+  revokedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tasks            BrowserTask[]
+
+  @@index([organizationId])
+}
+
+// Accord du vendeur pour un site assisté, avec les risques expliqués. Pause possible (alerte du site).
+model ChannelConsent {
+  id             String       @id @default(cuid())
+  organizationId String
+  channel        Channel
+  // Version du texte d'accord accepté : un nouveau texte demande un nouvel accord.
+  version        Int
+  acceptedById   String
+  acceptedAt     DateTime     @default(now())
+  // Plafond de publications par jour, réglable à la baisse seulement.
+  dailyCap       Int
+  pausedAt       DateTime?
+  pauseReason    String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, channel])
+}
+
+// Interrupteur par site, pour tous les vendeurs (site modifié, demande de la plateforme…).
+model SiteSwitch {
+  channel          Channel  @id
+  enabled          Boolean  @default(true)
+  // Version des repères de page attendus par l'extension.
+  selectorsVersion Int      @default(1)
+  reason           String?
+  updatedAt        DateTime @updatedAt
+}
+
+enum BrowserTaskType {
+  LIST // publier l'annonce
+  UPDATE // modifier prix, titre, description
+  DELIST // retirer l'annonce (vendue ailleurs, rupture, fiche supprimée)
+}
+
+enum BrowserTaskStatus {
+  QUEUED // en attente du vendeur
+  CLAIMED // ouverte dans le navigateur
+  DONE
+  FAILED
+  CANCELLED // remplacée par une tâche plus récente, ou accord retiré
+}
+
+// Tâche à faire dans le navigateur du vendeur. Une seule tâche ouverte par SKU et par site.
+model BrowserTask {
+  id             String            @id @default(cuid())
+  organizationId String
+  channel        Channel
+  type           BrowserTaskType
+  status         BrowserTaskStatus @default(QUEUED)
+  productId      String?
+  skuCode        String
+  title          String
+  attempts       Int               @default(0)
+  deviceId       String?
+  claimedAt      DateTime?
+  completedAt    DateTime?
+  errorCode      String?
+  errorMessage   String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  device         ExtensionDevice?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([organizationId, channel, skuCode])
+  @@index([channel, completedAt])
 }
