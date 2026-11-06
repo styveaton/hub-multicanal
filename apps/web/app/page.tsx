@@ -5,6 +5,7 @@ import { ArrowRight, Store } from "lucide-react";
 import { CHANNELS as ALL_CHANNELS } from "@hub/shared";
 import { BrandKeywords } from "./components/Brand";
 import { Logo, LogoIcon } from "./components/Logo";
+import { SiteFooter } from "./components/SiteFooter";
 import { useI18n } from "./i18n/I18nProvider";
 import { LanguageSwitcher } from "./i18n/LanguageSwitcher";
 
@@ -80,6 +81,7 @@ export default function Home() {
           ))}
         </div>
       </main>
+      <SiteFooter />
     </>
   );
 }

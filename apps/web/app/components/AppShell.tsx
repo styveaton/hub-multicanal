@@ -7,6 +7,7 @@ import { useI18n } from "../i18n/I18nProvider";
 import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 import type { Me } from "../lib/api";
 import { Logo } from "./Logo";
+import { SiteFooter } from "./SiteFooter";
 
 type NavKey = "products" | "stock" | "orders" | "channels" | "analytics" | "team" | "billing";
 
@@ -85,6 +86,7 @@ export function AppShell({ me, active, onLogout, children }: {
         </div>
       </header>
       <main className="page">{children}</main>
+      <SiteFooter />
     </>
   );
 }

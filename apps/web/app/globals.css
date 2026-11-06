@@ -218,8 +218,10 @@ a.nav-item:hover { background: rgba(255, 255, 255, 0.08); color: var(--white); t
 .legal h2 { font-size: 1.15rem; margin-top: 2rem; }
 .legal p, .legal ul { margin-top: 0.75rem; }
 .legal ul { padding-left: 1.25rem; display: grid; gap: 0.4rem; }
-.auth-legal { margin-top: 1rem; text-align: center; font-size: 0.85rem; }
-.auth-legal a { color: var(--text-muted); }
+/* Pied de page commun : éditeur + confidentialité */
+.site-footer { max-width: 1200px; margin: 0 auto; padding: 1.25rem 1rem 2rem; display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; justify-content: center; text-align: center; font-size: 0.82rem; color: var(--text-muted); }
+.site-footer a { color: var(--text-muted); }
+.auth-main .site-footer { padding-bottom: 0; margin-top: 1rem; }
 /* Petit écran : « Se connecter » reste accessible dans le bloc principal. */
 @media (max-width: 520px) {
   .site-header .btn--ghost { display: none; }
@@ -333,6 +335,14 @@ select.input { appearance: auto; }
 .photo-drop small { color: var(--text-muted); font-weight: 400; font-size: 0.7rem; }
 .photo-drop:hover, .photo-drop.is-over { border-color: var(--blue); background: var(--blue-50); }
 .photos .field-hint { display: block; margin-top: 0.6rem; }
+
+/* Prise de photo à la webcam */
+.camera { width: min(640px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: var(--radius-sm); background: var(--white); color: var(--text); }
+.camera::backdrop { background: rgba(11, 31, 68, 0.6); }
+.camera-head { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.6rem 0.6rem 1rem; border-bottom: 1px solid var(--border); }
+.camera-video { display: block; width: 100%; max-height: 65vh; background: #000; object-fit: contain; }
+.camera-error { margin: 1rem; }
+.camera-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: flex-end; padding: 0.75rem 1rem; }
 
 /* Choix article unique / variantes */
 .segmented { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }

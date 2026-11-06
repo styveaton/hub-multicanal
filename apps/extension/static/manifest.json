@@ -3,6 +3,7 @@
   "name": "OmniList Assistant",
   "version": "0.1.0",
   "description": "Prépare vos annonces OmniList sur les sites sans API. Vous validez chaque action vous-même.",
+  "author": "One Hand Business LLC",
   "minimum_chrome_version": "116",
   "action": {
     "default_title": "OmniList Assistant",

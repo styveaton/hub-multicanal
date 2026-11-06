@@ -21,6 +21,7 @@ import { messages } from "./i18n.js";
 const t = messages(navigator.language);
 const app = document.getElementById("app")!;
 const deviceLabel = document.getElementById("device")!;
+document.getElementById("year")!.textContent = String(new Date().getFullYear());
 document.documentElement.lang = t.lang;
 
 const CURRENT = "currentTask";

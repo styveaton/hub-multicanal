@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, ImagePlus, Loader2, Star, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, ImagePlus, Loader2, Star, X } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import { api, type Photo } from "../../lib/api";
+import { CameraDialog } from "./CameraDialog";
 
 export const MAX_PHOTOS = 12;
 const ACCEPT = "image/jpeg,image/png,image/webp";
@@ -11,10 +12,13 @@ const ACCEPT = "image/jpeg,image/png,image/webp";
 /**
  * Photos du produit (US4 : 1 à 12). La première est la photo principale.
  * Chaque fichier est envoyé dès qu'il est choisi ; l'ordre se règle avec les flèches.
+ * « Prendre une photo » ouvre l'appareil photo du téléphone, ou la webcam sur ordinateur.
  */
 export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange: (photos: Photo[]) => void }) {
   const t = useI18n().t.photos;
   const input = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [uploading, setUploading] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -39,6 +43,13 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
       }),
     );
     onChange([...photos, ...results.filter((p): p is Photo => p !== null)]);
+  }
+
+  function takePhoto() {
+    // Téléphone ou tablette : l'appareil photo du système. Ordinateur : la webcam, dans une fenêtre.
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+    if (!touch && typeof navigator.mediaDevices?.getUserMedia === "function") setCameraOpen(true);
+    else cameraInput.current?.click();
   }
 
   function move(index: number, delta: number) {
@@ -112,6 +123,12 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
             <small>{t.formats}</small>
           </button>
         )}
+        {remaining > 0 && (
+          <button type="button" className="photo-drop" onClick={takePhoto}>
+            <Camera size={24} aria-hidden />
+            <span>{t.takePhoto}</span>
+          </button>
+        )}
       </div>
       <input
         ref={input}
@@ -124,6 +141,18 @@ export function PhotoUploader({ photos, onChange }: { photos: Photo[]; onChange:
           e.target.value = "";
         }}
       />
+      <input
+        ref={cameraInput}
+        type="file"
+        accept={ACCEPT}
+        capture="environment"
+        hidden
+        onChange={(e) => {
+          if (e.target.files) void addFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      {cameraOpen && <CameraDialog onCapture={(file) => void addFiles([file])} onClose={() => setCameraOpen(false)} />}
       <p className="field-hint">
         {t.counter(photos.length, MAX_PHOTOS)}
       </p>

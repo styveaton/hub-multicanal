@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "../components/Logo";
+import { SiteFooter } from "../components/SiteFooter";
 import { getLocale } from "../i18n/server";
 import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 import { PRIVACY, PRIVACY_CONTACT, PRIVACY_UPDATED } from "./content";
@@ -46,6 +47,7 @@ export default async function PrivacyPage() {
           <a href={`mailto:${PRIVACY_CONTACT}`}>{PRIVACY_CONTACT}</a>
         </p>
       </main>
+      <SiteFooter />
     </>
   );
 }

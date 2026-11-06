@@ -6,6 +6,7 @@ import { useI18n } from "../i18n/I18nProvider";
 import { LanguageSwitcher } from "../i18n/LanguageSwitcher";
 import { BrandKeywords } from "./Brand";
 import { Logo } from "./Logo";
+import { SiteFooter } from "./SiteFooter";
 
 /** Écrans inscription / connexion / invitation : panneau de marque navy + carte formulaire. */
 export function AuthLayout({ title, subtitle, children, footer }: {
@@ -14,7 +15,7 @@ export function AuthLayout({ title, subtitle, children, footer }: {
   children: ReactNode;
   footer?: ReactNode;
 }) {
-  const { brand, common } = useI18n().t;
+  const { brand } = useI18n().t;
   return (
     <div className="auth">
       <aside className="auth-brand">
@@ -41,9 +42,7 @@ export function AuthLayout({ title, subtitle, children, footer }: {
           {children}
           {footer && <p className="auth-footer">{footer}</p>}
         </div>
-        <p className="auth-legal">
-          <Link href="/privacy">{common.privacy}</Link>
-        </p>
+        <SiteFooter />
       </main>
     </div>
   );
