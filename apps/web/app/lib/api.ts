@@ -201,6 +201,7 @@ function messageFor(code: string, data: Record<string, unknown>): string {
     if (first && first in validation) return validation[first as keyof typeof validation];
   }
   if (code === "sku_taken") return errors.sku_taken(String(data.sku));
+  if (code === "invalid_code" && typeof data.remaining === "number") return errors.invalid_code_remaining(data.remaining);
   if (code === "title_too_long") return errors.title_too_long(Number(data.max));
   if (code === "insufficient_stock" && data.sku) return `${errors.insufficient_stock} (${String(data.sku)} : ${Number(data.available)})`;
   const m = errors[code as keyof typeof errors];

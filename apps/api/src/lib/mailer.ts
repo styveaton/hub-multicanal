@@ -99,6 +99,43 @@ export function invitationEmail(params: {
   };
 }
 
+const RESET_TEXT = {
+  fr: {
+    subject: (code: string) => `${code} est votre code OmniList`,
+    heading: "Changer de mot de passe",
+    body: "Saisissez ce code sur OmniList pour choisir un nouveau mot de passe :",
+    expires: (minutes: number) => `Ce code est valable ${minutes} minutes et ne sert qu'une fois.`,
+    ignore: "Vous n'avez rien demandé ? Ignorez cet email : votre mot de passe reste le même. Ne communiquez jamais ce code.",
+  },
+  en: {
+    subject: (code: string) => `${code} is your OmniList code`,
+    heading: "Change your password",
+    body: "Enter this code on OmniList to choose a new password:",
+    expires: (minutes: number) => `This code is valid for ${minutes} minutes and works only once.`,
+    ignore: "Didn't ask for this? Ignore this email: your password stays the same. Never share this code.",
+  },
+} satisfies Record<Locale, unknown>;
+
+/** Email du code à 6 chiffres pour changer de mot de passe. */
+export function passwordResetEmail(params: { to: string; code: string; minutes: number; locale: Locale }): MailMessage {
+  const { to, code, minutes, locale } = params;
+  const t = RESET_TEXT[locale];
+  return {
+    to,
+    subject: t.subject(code),
+    text: [t.body, "", code, "", t.expires(minutes), "", t.ignore, "", "OmniList · List once. Sync everywhere."].join("\n"),
+    html: brandedEmail(
+      locale,
+      `
+      <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:${BRAND.navy};">${t.heading}</h1>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:${BRAND.muted};">${t.body}</p>
+      <p style="margin:0 0 20px;font-size:32px;font-weight:800;letter-spacing:8px;color:${BRAND.navy};font-family:Consolas,'Courier New',monospace;">${code}</p>
+      <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:${BRAND.navy};">${t.expires(minutes)}</p>
+      <p style="margin:0;font-size:13px;line-height:1.6;color:${BRAND.muted};">${t.ignore}</p>`,
+    ),
+  };
+}
+
 // Couleurs de la charte OmniList (docs/CHARTE.md).
 const BRAND = { navy: "#0B1F44", blue: "#2563FF", muted: "#5B6B86", surface: "#F3F6FB", border: "#DCE3EF" };
 

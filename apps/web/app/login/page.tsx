@@ -47,6 +47,9 @@ export default function LoginPage() {
           {t.common.password}
           <input className="input" name="password" type="password" required autoComplete="current-password" />
         </label>
+        <Link href="/forgot-password" className="auth-forgot">
+          {t.login.forgot}
+        </Link>
         {error && <Alert kind="error">{error}</Alert>}
         <button className="btn btn--block" disabled={pending}>
           {pending ? t.login.pending : t.login.submit}

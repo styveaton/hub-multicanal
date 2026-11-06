@@ -23,15 +23,16 @@ enum InvitationStatus {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  name         String?
-  passwordHash String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  memberships  Membership[]
-  sentInvites  Invitation[] @relation("InvitedBy")
-  sessions     Session[]
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String?
+  passwordHash   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  memberships    Membership[]
+  sentInvites    Invitation[]    @relation("InvitedBy")
+  sessions       Session[]
+  passwordResets PasswordReset[]
 }
 
 // Un compte vendeur (l'entreprise). Porte l'abonnement Stripe (Sprint 6).
@@ -58,6 +59,20 @@ model Organization {
 }
 
 // Session de connexion : le cookie porte un jeton aléatoire, seul son hash est stocké.
+// Code à 6 chiffres envoyé par email pour changer de mot de passe (valable 2 minutes).
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int       @default(0)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
 model Session {
   id             String       @id @default(cuid())
   tokenHash      String       @unique

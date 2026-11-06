@@ -139,6 +139,14 @@ p { margin: 0; }
 .auth-card h1 { font-size: 1.6rem; }
 .auth-card > p { margin-top: 0.4rem; }
 .auth-card .form { margin-top: 1.5rem; }
+.auth-forgot { justify-self: end; margin-top: -0.5rem; font-size: 0.85rem; }
+.otp-input { font-size: 1.4rem; letter-spacing: 0.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.otp-timer { font-size: 0.88rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.otp-timer--low { color: #b54708; font-weight: 600; }
+.otp-timer--over { color: var(--error); font-weight: 600; }
+.otp-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; font-size: 0.88rem; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--blue); cursor: pointer; text-decoration: underline; }
+.link-btn:disabled { color: var(--text-muted); cursor: default; text-decoration: none; }
 .auth-footer { margin-top: 1.25rem; text-align: center; font-size: 0.9rem; color: var(--text-muted); }
 
 @media (min-width: 960px) {
