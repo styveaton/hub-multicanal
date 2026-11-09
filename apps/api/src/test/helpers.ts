@@ -25,7 +25,8 @@ export { prisma };
 export const TEST_WEB_URL = "http://web.test";
 export const TEST_PUBLIC_API_URL = "https://api.test";
 
-export function createTestApp() {
+/** `env` : variables en plus pour l'API (ex. RATE_LIMIT=on pour tester la limite de requêtes). */
+export function createTestApp(env: Record<string, string> = {}) {
   const mailer = new MemoryMailer();
   const storage = new MemoryStorage();
   const queue = new MemoryJobQueue();
@@ -48,7 +49,7 @@ export function createTestApp() {
   const woo = createWooClient(config.woo, fakeWoo.fetch);
   const ebay = createEbayClient(config.ebay, fakeEbay.fetch);
   const etsy = createEtsyClient(config.etsy, fakeEtsy.fetch);
-  const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: TEST_WEB_URL }), {
+  const app = buildApp(loadEnv({ NODE_ENV: "test", WEB_URL: TEST_WEB_URL, ...env }), {
     prisma,
     mailer,
     storage,

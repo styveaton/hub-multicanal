@@ -173,6 +173,7 @@ export const channelRoutes: FastifyPluginAsync = async (app) => {
       currency = await app.channels.woo.getCurrency(store);
     } catch (err) {
       request.log.warn(err, "connexion WooCommerce refusée");
+      if (err instanceof ChannelApiError && err.code === "host_not_allowed") throw new HttpError(400, "store_url_invalid");
       const status = err instanceof ChannelApiError ? err.status : 0;
       throw new HttpError(400, status === 401 || status === 403 ? "woo_keys_invalid" : "woo_unreachable");
     }

@@ -398,5 +398,7 @@ export function verifyShopifyQuery(secret: string, query: URLSearchParams): bool
 export const signShopifyWebhook = (secret: string, rawBody: string) => createHmac("sha256", secret).update(rawBody, "utf8").digest("base64");
 
 export function verifyShopifyWebhook(secret: string, rawBody: string, header: string | undefined): boolean {
+  // Secret absent (Shopify pas encore configuré) : une signature faite avec une clé vide serait acceptée.
+  if (!secret) return false;
   return !!header && safeEqual(signShopifyWebhook(secret, rawBody), header);
 }

@@ -7,7 +7,10 @@
 export const OMNILIST_ORIGINS = ["https://omnilist.1handbiz.com", "http://localhost:3000"] as const;
 export const DEFAULT_ORIGIN = OMNILIST_ORIGINS[0];
 
-export const isOmnilistOrigin = (origin: string) => (OMNILIST_ORIGINS as readonly string[]).includes(origin);
+/** Site connu ET autorisé par le manifeste (la version publiée n'autorise pas localhost). */
+export const isOmnilistOrigin = (origin: string) =>
+  (OMNILIST_ORIGINS as readonly string[]).includes(origin) &&
+  ((chrome.runtime.getManifest().host_permissions ?? []) as string[]).some((p: string) => p.startsWith(`${origin}/`));
 
 export interface Pairing {
   origin: string;

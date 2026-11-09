@@ -7,6 +7,7 @@ import { requestLocale } from "../lib/locale.js";
 import { invitationEmail } from "../lib/mailer.js";
 import { buildMe } from "../lib/me.js";
 import { requirePermission, startSession } from "../plugins/auth.js";
+import { STRICT_RATE_LIMIT } from "../lib/rate-limit.js";
 import { Email, NewPassword, PersonName } from "./auth.js";
 
 const CreateInvitation = z.object({ email: Email });
@@ -108,7 +109,7 @@ export const invitationRoutes: FastifyPluginAsync = async (app) => {
   );
 
   // Public : infos affichées sur la page d'acceptation (le lien contient le jeton).
-  app.post("/preview", async (request) => {
+  app.post("/preview", { config: STRICT_RATE_LIMIT }, async (request) => {
     const { token } = TokenBody.parse(request.body);
     const invitation = await findUsableInvitation(token);
     const existingUser = await app.prisma.user.findUnique({ where: { email: invitation.email } });
@@ -121,7 +122,7 @@ export const invitationRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // Public : l'invité accepte. Nouveau compte (nom + mot de passe) ou compte existant (mot de passe).
-  app.post("/accept", async (request, reply) => {
+  app.post("/accept", { config: STRICT_RATE_LIMIT }, async (request, reply) => {
     const body = AcceptInvitation.parse(request.body);
     const invitation = await findUsableInvitation(body.token);
     const existingUser = await app.prisma.user.findUnique({ where: { email: invitation.email } });

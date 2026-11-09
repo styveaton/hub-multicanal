@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
+import rateLimit from "@fastify/rate-limit";
 import { ZodError } from "zod";
 import { Prisma, type PrismaClient } from "@hub/db";
 import type {
@@ -71,8 +72,15 @@ export interface AppDeps {
   channels: ChannelRuntime;
 }
 
+/** Limite de requêtes : active partout sauf dans les tests (sauf RATE_LIMIT=on). */
+export const rateLimitEnabled = (env: Env) => (env.RATE_LIMIT ? env.RATE_LIMIT === "on" : env.NODE_ENV !== "test");
+
 export function buildApp(env: Env, deps: AppDeps) {
-  const app = Fastify({ logger: env.NODE_ENV !== "test" });
+  const app = Fastify({
+    logger: env.NODE_ENV !== "test",
+    // Vraie IP du visiteur (limite de requêtes, journaux) derrière nginx et Next.js.
+    trustProxy: env.TRUST_PROXY_HOPS > 0 ? (_address: string, hop: number) => hop < env.TRUST_PROXY_HOPS : false,
+  });
   app.decorate("env", env);
   app.decorate("prisma", deps.prisma);
   app.decorate("mailer", deps.mailer);
@@ -96,6 +104,18 @@ export function buildApp(env: Env, deps: AppDeps) {
   });
 
   app.register(cookie);
+  if (rateLimitEnabled(env)) {
+    // Limite générale par IP. Les routes sensibles (connexion, inscription…) ont la leur, plus stricte.
+    // Les webhooks des canaux en sont exclus : ils arrivent en rafale et sont signés.
+    app.register(rateLimit, {
+      max: 600,
+      timeWindow: "1 minute",
+      allowList: (request) => request.url.startsWith("/webhooks/"),
+      // Renvoyée telle quelle par le gestionnaire d'erreurs : { error: "too_many_requests", retryAfterSeconds }.
+      errorResponseBuilder: (_request, context) =>
+        new HttpError(429, "too_many_requests", { retryAfterSeconds: Math.ceil(context.ttl / 1000) }),
+    });
+  }
   app.register(healthRoutes);
   // Sans session : les canaux téléchargent les photos par lien signé.
   app.register(publicPhotoRoutes, { prefix: "/public/photos" });

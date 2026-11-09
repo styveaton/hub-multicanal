@@ -127,7 +127,7 @@ const EtsyDetailsInput = z
 
 const ChannelInput = z.object({
   enabled: z.boolean(),
-  details: z.record(z.unknown()).nullish(),
+  details: z.record(z.string(), z.unknown()).nullish(),
   title: z.string().trim().max(255).nullish(),
   category: z.string().trim().max(200).nullish(),
   price: z.discriminatedUnion("mode", [

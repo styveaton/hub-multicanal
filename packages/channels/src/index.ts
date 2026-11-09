@@ -21,3 +21,4 @@ export * from "./inventory.js";
 export * from "./jobs.js";
 export * from "./publish.js";
 export * from "./assisted.js";
+export * from "./net.js";

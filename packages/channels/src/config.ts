@@ -9,6 +9,7 @@ import { FAKE_ETSY_KEYSTRING, FAKE_ETSY_SECRET } from "./etsy/fake.js";
 import { SHOPIFY_API_VERSION, ShopifyClient } from "./shopify/client.js";
 import { FAKE_SHOPIFY_CLIENT_ID, FAKE_SHOPIFY_CLIENT_SECRET } from "./shopify/fake.js";
 import { WooClient } from "./woocommerce/client.js";
+import { assertPublicHost } from "./net.js";
 
 /** Variables d'environnement des canaux, lues par l'API et par le worker. */
 const ChannelEnvSchema = z.object({
@@ -257,7 +258,9 @@ export const createShopifyClient = (config: ShopifyConfig, fetchImpl?: typeof fe
     fetch: fetchImpl,
   });
 
-export const createWooClient = (config: WooConfig, fetchImpl?: typeof fetch) => new WooClient({ baseUrlFor: config.baseUrlFor, fetch: fetchImpl });
+// Vraies boutiques : l'adresse saisie par le marchand doit mener à une IP publique (pas au réseau du serveur).
+export const createWooClient = (config: WooConfig, fetchImpl?: typeof fetch) =>
+  new WooClient({ baseUrlFor: config.baseUrlFor, fetch: fetchImpl, checkHost: config.mode === "live" ? (host) => assertPublicHost(host) : undefined });
 
 export const createEbayClient = (config: EbayConfig, fetchImpl?: typeof fetch) =>
   new EbayClient({

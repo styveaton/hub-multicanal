@@ -31,5 +31,12 @@ Aucun accès aux sites de vente pour l'instant : l'extension ne lit ni ne modifi
 npm run build -w @hub/extension
 ```
 
+Cette version (celle à publier) ne parle qu'à `omnilist.1handbiz.com`. Pour essayer avec le site local
+(`localhost:3000`), compiler la version de développement :
+
+```bash
+npm run build:dev -w @hub/extension
+```
+
 Dans Chrome : `chrome://extensions`, activer le mode développeur, puis « Charger l'extension non
 empaquetée » et choisir le dossier `apps/extension/dist`.

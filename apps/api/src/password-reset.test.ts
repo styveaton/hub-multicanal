@@ -100,6 +100,19 @@ describe("mot de passe oublié", () => {
     expect((await reset(code)).json().error).toBe("too_many_attempts");
   });
 
+  it(`des essais envoyés en même temps ne dépassent pas ${RESET_MAX_ATTEMPTS}`, async () => {
+    await forgot();
+    const code = lastCode();
+    const wrong = code === "000000" ? "111111" : "000000";
+    const results = await Promise.all(Array.from({ length: 30 }, () => reset(wrong)));
+    const judged = results.filter((r) => r.json().error === "invalid_code").length;
+    expect(judged).toBeLessThanOrEqual(RESET_MAX_ATTEMPTS);
+    const row = await prisma.passwordReset.findFirstOrThrow();
+    expect(row.attempts).toBe(RESET_MAX_ATTEMPTS);
+    // Le bon code ne passe plus : le compteur est épuisé.
+    expect((await reset(code)).json().error).toBe("too_many_attempts");
+  });
+
   it("un nouvel envoi attend 30 secondes, et seul le dernier code compte", async () => {
     await forgot();
     const first = lastCode();

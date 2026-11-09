@@ -6,6 +6,7 @@ import { requestLocale } from "../lib/locale.js";
 import { passwordResetEmail } from "../lib/mailer.js";
 import { buildMe } from "../lib/me.js";
 import { SESSION_COOKIE, requireAuth, startSession } from "../plugins/auth.js";
+import { STRICT_RATE_LIMIT } from "../lib/rate-limit.js";
 
 export const Email = z.string().trim().toLowerCase().email().max(254);
 export const NewPassword = z.string().min(8, "password_too_short").max(200);
@@ -41,7 +42,7 @@ async function loginInto(app: FastifyInstance, reply: FastifyReply, userId: stri
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   // Inscription d'un propriétaire : crée l'utilisateur, son organisation et le rôle OWNER.
-  app.post("/signup", async (request, reply) => {
+  app.post("/signup", { config: STRICT_RATE_LIMIT }, async (request, reply) => {
     const body = Signup.parse(request.body);
     if (await app.prisma.user.findUnique({ where: { email: body.email } })) {
       return reply.code(409).send({ error: "email_taken" });
@@ -58,7 +59,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send(await buildMe(app, user.id, organization.id));
   });
 
-  app.post("/login", async (request, reply) => {
+  app.post("/login", { config: STRICT_RATE_LIMIT }, async (request, reply) => {
     const body = Login.parse(request.body);
     const user = await app.prisma.user.findUnique({ where: { email: body.email } });
     // Même temps de réponse que l'email existe ou non.
@@ -71,7 +72,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
   // Mot de passe oublié, étape 1 : envoie un code par email.
   // Même réponse que le compte existe ou non. Un seul code toutes les 30 s, 6 par heure.
-  app.post("/password/forgot", async (request) => {
+  app.post("/password/forgot", { config: STRICT_RATE_LIMIT }, async (request) => {
     const { email } = ForgotPassword.parse(request.body);
     const user = await app.prisma.user.findUnique({ where: { email } });
     if (user) {
@@ -97,7 +98,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
   // Mot de passe oublié, étape 2 : vérifie le code (seul le dernier envoyé compte), change le mot de passe,
   // ferme toutes les sessions ouvertes et connecte la personne.
-  app.post("/password/reset", async (request, reply) => {
+  app.post("/password/reset", { config: STRICT_RATE_LIMIT }, async (request, reply) => {
     const body = ResetPassword.parse(request.body);
     const user = await app.prisma.user.findUnique({ where: { email: body.email } });
     const reset = user
@@ -105,15 +106,18 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       : null;
     if (!user || !reset || reset.usedAt) return reply.code(400).send({ error: "invalid_code" });
     if (reset.expiresAt.getTime() <= Date.now()) return reply.code(400).send({ error: "code_expired" });
-    if (reset.attempts >= RESET_MAX_ATTEMPTS) return reply.code(400).send({ error: "too_many_attempts" });
+    // L'essai est compté AVANT de comparer, en une seule écriture conditionnelle :
+    // des requêtes envoyées en même temps ne peuvent pas dépasser les 5 essais.
+    const { count: reserved } = await app.prisma.passwordReset.updateMany({
+      where: { id: reset.id, usedAt: null, attempts: { lt: RESET_MAX_ATTEMPTS } },
+      data: { attempts: { increment: 1 } },
+    });
+    if (reserved === 0) return reply.code(400).send({ error: "too_many_attempts" });
 
     const expected = Buffer.from(reset.codeHash, "hex");
     const given = Buffer.from(resetCodeHash(user.id, body.code.replace(/\s/g, "")), "hex");
     if (!timingSafeEqual(expected, given)) {
-      const { attempts } = await app.prisma.passwordReset.update({
-        where: { id: reset.id },
-        data: { attempts: { increment: 1 } },
-      });
+      const { attempts } = await app.prisma.passwordReset.findUniqueOrThrow({ where: { id: reset.id }, select: { attempts: true } });
       const remaining = Math.max(RESET_MAX_ATTEMPTS - attempts, 0);
       return reply.code(400).send(remaining > 0 ? { error: "invalid_code", remaining } : { error: "too_many_attempts" });
     }

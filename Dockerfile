@@ -16,6 +16,8 @@ FROM node:22-alpine
 RUN apk add --no-cache openssl
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
-COPY --from=build /app ./
+COPY --from=build --chown=node:node /app ./
+# Pas de root dans le conteneur.
+USER node
 EXPOSE 3000 4000
 CMD ["node", "apps/api/dist/server.js"]

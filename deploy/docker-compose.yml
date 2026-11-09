@@ -37,7 +37,7 @@ services:
 
   # Photos des produits (compatible S3). Clés dans deploy/seaweedfs/s3.json, créé par deploy/setup-env.sh.
   s3:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs:4.53
     restart: unless-stopped
     command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=1024 -volume.max=20
     volumes:

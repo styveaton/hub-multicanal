@@ -9,6 +9,11 @@ const EnvSchema = z.object({
   // Adresse du front, utilisée pour les liens dans les emails d'invitation.
   WEB_URL: z.string().url().default("http://localhost:3000"),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  // Limite de requêtes par adresse IP. Coupée par défaut dans les tests seulement.
+  RATE_LIMIT: z.enum(["on", "off"]).optional(),
+  // Relais devant l'API qui ajoutent l'IP du visiteur à X-Forwarded-For. En production :
+  // nginx l'ajoute, Next.js (/api) le transmet tel quel → 1. Mettre 0 si l'API est appelée en direct.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
   INVITATION_TTL_DAYS: z.coerce.number().int().positive().default(7),
   SMTP_HOST: z.string().default("localhost"),
   SMTP_PORT: z.coerce.number().default(1025),

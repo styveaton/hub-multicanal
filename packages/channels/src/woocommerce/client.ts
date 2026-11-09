@@ -6,6 +6,7 @@
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { ChannelApiError } from "../listing.js";
+import { HostNotAllowedError, isInternalHostname } from "../net.js";
 
 export interface WooStore {
   /** Adresse du site WordPress, ex. https://boutique.example.com */
@@ -14,15 +15,23 @@ export interface WooStore {
   secret: string;
 }
 
-/** Adresse saisie → adresse canonique (https, sans / final), ou null. `allowHttp` : faux WooCommerce local. */
+/**
+ * Adresse saisie → adresse canonique (https, sans / final), ou null.
+ * `allowHttp` : faux WooCommerce local (http et localhost permis).
+ * Sinon, refuse les IP et les noms internes ; la résolution DNS est vérifiée au moment de l'appel.
+ */
 export function normalizeStoreUrl(input: string, allowHttp = false): string | null {
   let s = input.trim();
   if (!s) return null;
   if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
   try {
     const u = new URL(s);
-    if (u.protocol !== "https:" && !allowHttp) return null;
-    if (!u.hostname.includes(".") && u.hostname !== "localhost") return null;
+    if (u.username || u.password) return null;
+    if (allowHttp) {
+      if (!u.hostname.includes(".") && u.hostname !== "localhost") return null;
+    } else if (u.protocol !== "https:" || isInternalHostname(u.hostname)) {
+      return null;
+    }
     return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, "")}`;
   } catch {
     return null;
@@ -88,6 +97,11 @@ export interface WooClientOptions {
   /** Adresse réelle de l'API pour une boutique (par défaut l'adresse du site). */
   baseUrlFor?: (storeUrl: string) => string;
   fetch?: typeof fetch;
+  /**
+   * Vérifie l'hôte avant chaque appel (vraies boutiques : il doit mener à une IP publique).
+   * Quand il est fourni, les redirections sont aussi refusées : elles pourraient viser le réseau interne.
+   */
+  checkHost?: (hostname: string) => Promise<void>;
 }
 
 export class WooClient {
@@ -177,9 +191,19 @@ export class WooClient {
   private async send(store: WooStore, method: string, path: string, body?: unknown): Promise<Response> {
     const base = (this.opts.baseUrlFor?.(store.url) ?? store.url).replace(/\/$/, "");
     const auth = Buffer.from(`${store.key}:${store.secret}`).toString("base64");
+    const { checkHost } = this.opts;
+    if (checkHost) {
+      try {
+        await checkHost(new URL(base).hostname);
+      } catch (err) {
+        const hostname = err instanceof HostNotAllowedError ? err.hostname : base;
+        throw new ChannelApiError(0, "host_not_allowed", `adresse de boutique non autorisée : ${hostname}`, false);
+      }
+    }
     try {
       return await this.fetchImpl(`${base}/wp-json/wc/v3${path}`, {
         method,
+        ...(checkHost ? { redirect: "error" as const } : {}),
         headers: {
           authorization: `Basic ${auth}`,
           accept: "application/json",
