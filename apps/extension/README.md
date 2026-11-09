@@ -15,15 +15,25 @@ Les garde-fous sont décrits dans [docs/PLAN-EXTENSION.md](../../docs/PLAN-EXTEN
   Il peut aussi signaler un problème (une alerte du site met ce site en pause) ou laisser la tâche
   pour plus tard.
 
-Le remplissage automatique du formulaire de chaque site viendra en phase 2, en commençant par Poshmark.
+## Remplissage automatique (phase 2)
+
+- **Poshmark** (version 0.2.0) : sur la page Poshmark de la tâche, le vendeur ouvre l'extension et
+  clique sur « Remplir le formulaire ». L'extension met les photos (nouvelle annonce seulement), le
+  titre, la description, l'état, la marque, le prix (en dollars entiers) et le SKU.
+- Le vendeur garde : le recadrage des photos, la catégorie, la taille, la couleur, la suggestion de
+  marque, le prix d'origine, puis « Next » et « List ». L'extension ne clique jamais sur ces boutons.
+- Si la page montre un CAPTCHA, ou si le formulaire a changé, rien n'est rempli et l'extension
+  propose de le signaler (le site passe en pause).
+- Code : `src/sites/poshmark.ts`. Les repères de la page ont été relevés le 9 novembre 2026.
+- Mercari, Facebook Marketplace et Grailed restent en copier-coller pour l'instant.
 
 ## Droits demandés
 
 - `storage` : le jeton et la tâche en cours.
 - `alarms` : le relevé des tâches.
+- `activeTab` et `scripting` : remplir le formulaire de l'onglet affiché, seulement quand le vendeur
+  clique sur « Remplir ». Aucun accès permanent aux sites de vente.
 - Accès à `omnilist.1handbiz.com` (et `localhost:3000` en développement) seulement.
-
-Aucun accès aux sites de vente pour l'instant : l'extension ne lit ni ne modifie leurs pages.
 
 ## Compiler et essayer
 

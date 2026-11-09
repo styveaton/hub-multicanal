@@ -60,6 +60,26 @@ const fr = {
     too_many_failures: "plusieurs échecs de suite",
     manual: "mis en pause sur OmniList",
   } as Record<string, string>,
+  fill: {
+    button: (site: string) => `Remplir le formulaire ${site}`,
+    pending: "Remplissage…",
+    again: "Remplir à nouveau",
+    hint: {
+      LIST: (site: string) => `Sur la page ${site} ouverte, cliquez sur « Remplir » : OmniList remplit le formulaire. Vérifiez-le, complétez ce qui manque, puis cliquez vous-même sur « List ».`,
+      UPDATE: (site: string) => `Ouvrez l'annonce sur ${site} en mode modification, puis cliquez sur « Remplir ». Vérifiez, puis enregistrez vous-même sur le site.`,
+    },
+    fields: { photos: "photos", title: "titre", description: "description", condition: "état", brand: "marque", price: "prix", sku: "SKU" },
+    done: (fields: string) => `Rempli : ${fields}.`,
+    missed: (fields: string) => `À saisir vous-même : ${fields}.`,
+    check: {
+      POSHMARK: "À faire sur Poshmark : validez le recadrage des photos, choisissez la catégorie, la taille et la suggestion de marque, indiquez le prix d'origine, puis cliquez sur « Next » puis « List ».",
+    } as Record<string, string>,
+    checkGeneric: (site: string) => `Vérifiez le formulaire, complétez-le, puis publiez vous-même sur ${site}.`,
+    notOnSite: (site: string) => `Affichez d'abord la page ${site} de la tâche, puis rouvrez l'extension depuis cet onglet.`,
+    captcha: (site: string) => `${site} demande une vérification (CAPTCHA) : rien n'a été rempli. Signalez-le ci-dessous.`,
+    formNotFound: (site: string) => `Formulaire ${site} introuvable : la page a peut-être changé. Remplissez avec les boutons Copier, ou signalez-le.`,
+    error: "Le remplissage a échoué. Utilisez les boutons Copier.",
+  },
   errors: {
     generic: "Une erreur est survenue.",
     network_error: "OmniList est injoignable. Vérifiez votre connexion.",
@@ -138,6 +158,26 @@ const en: Messages = {
     account_restricted: "account restricted",
     too_many_failures: "several failures in a row",
     manual: "paused on OmniList",
+  },
+  fill: {
+    button: (site: string) => `Fill the ${site} form`,
+    pending: "Filling…",
+    again: "Fill again",
+    hint: {
+      LIST: (site: string) => `On the open ${site} page, click “Fill”: OmniList fills the form. Check it, complete what's missing, then click “List” yourself.`,
+      UPDATE: (site: string) => `Open the listing on ${site} in edit mode, then click “Fill”. Check it, then save it yourself on the site.`,
+    },
+    fields: { photos: "photos", title: "title", description: "description", condition: "condition", brand: "brand", price: "price", sku: "SKU" },
+    done: (fields: string) => `Filled: ${fields}.`,
+    missed: (fields: string) => `Enter yourself: ${fields}.`,
+    check: {
+      POSHMARK: "To do on Poshmark: confirm the photo crop, pick the category, size and brand suggestion, enter the original price, then click “Next” and “List”.",
+    } as Record<string, string>,
+    checkGeneric: (site: string) => `Check the form, complete it, then publish it yourself on ${site}.`,
+    notOnSite: (site: string) => `First show the task's ${site} page, then reopen the extension from that tab.`,
+    captcha: (site: string) => `${site} asks for a check (CAPTCHA): nothing was filled. Report it below.`,
+    formNotFound: (site: string) => `${site} form not found: the page may have changed. Fill it with the Copy buttons, or report it.`,
+    error: "Filling failed. Use the Copy buttons.",
   },
   errors: {
     generic: "Something went wrong.",

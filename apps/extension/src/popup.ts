@@ -11,6 +11,7 @@ import {
   type TaskSummary,
 } from "./api.js";
 import { messages } from "./i18n.js";
+import { FILLERS, type FillData, type FillPhoto, type FillResult } from "./sites/index.js";
 
 /**
  * Fenêtre de l'extension. Phase 1 : le vendeur relie le navigateur, voit ses tâches, ouvre la page
@@ -204,6 +205,54 @@ async function activeTabUrl(task: TaskPayload, hosts: string[]) {
   }
 }
 
+/** Photo OmniList (lien signé) en fichier transportable vers la page du site. */
+async function loadPhoto(url: string, index: number): Promise<FillPhoto> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`photo ${index + 1}: ${res.status}`);
+  const blob = await res.blob();
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+  const type = blob.type || "image/jpeg";
+  const ext = type.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+  return { name: `photo-${index + 1}.${ext}`, type, base64: dataUrl.slice(dataUrl.indexOf(",") + 1) };
+}
+
+/**
+ * Remplit le formulaire du site dans l'onglet actif, au clic du vendeur (droit « activeTab » :
+ * seulement l'onglet affiché quand il a ouvert l'extension). Le vendeur publie lui-même.
+ */
+async function fillActiveTab(task: TaskPayload, hosts: string[]): Promise<FillResult | "not_on_site"> {
+  const filler = FILLERS[task.channel];
+  const p = task.product;
+  if (!filler || !p) throw new Error("no_filler");
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  let onSite = false;
+  try {
+    const host = new URL(tab?.url ?? "").hostname;
+    onSite = hosts.some((h) => host === h || host.endsWith(`.${h}`));
+  } catch {
+    onSite = false;
+  }
+  if (!tab?.id || !onSite) return "not_on_site";
+
+  const data: FillData = {
+    mode: task.type === "UPDATE" ? "UPDATE" : "LIST",
+    title: p.title,
+    description: p.description,
+    brand: p.brand,
+    condition: p.condition,
+    priceCents: p.currency === filler.currency ? p.priceCents : null,
+    sku: task.sku,
+    photos: task.type === "LIST" ? await Promise.all(p.photos.map(loadPhoto)) : [],
+  };
+  const [injection] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: filler.fill, args: [data] });
+  return (injection?.result as FillResult | undefined) ?? { stop: "form_not_found", filled: [], missed: [] };
+}
+
 async function renderTask(task: TaskPayload, flash?: { text: string; kind: "ok" | "error" | "warn" }) {
   const site = label(task.channel);
   const config = await api.config().catch(() => null);
@@ -267,10 +316,41 @@ async function renderTask(task: TaskPayload, flash?: { text: string; kind: "ok" 
     }),
   );
 
+  // Remplissage automatique (sites de la phase 2) : le vendeur clique, vérifie, puis publie lui-même.
+  const canFill = task.type !== "DELIST" && p !== null && FILLERS[task.channel] !== undefined;
+  const fillNote = h("div", {});
+  const fillButton = h("button", { class: "btn", type: "button", textContent: t.fill.button(site) });
+  fillButton.addEventListener("click", async () => {
+    fillButton.disabled = true;
+    fillButton.textContent = t.fill.pending;
+    try {
+      const res = await fillActiveTab(task, hosts);
+      if (res === "not_on_site") fillNote.replaceChildren(note(t.fill.notOnSite(site), "warn"));
+      else if (res.stop === "captcha") {
+        reason.value = "captcha";
+        fillNote.replaceChildren(note(t.fill.captcha(site), "error"));
+      } else if (res.stop) {
+        reason.value = "form_not_found";
+        fillNote.replaceChildren(note(t.fill.formNotFound(site), "error"));
+      } else {
+        fillNote.replaceChildren(
+          note(t.fill.done(res.filled.map((f) => t.fill.fields[f]).join(", ")), "ok"),
+          ...(res.missed.length > 0 ? [note(t.fill.missed(res.missed.map((f) => t.fill.fields[f]).join(", ")), "warn")] : []),
+          note(t.fill.check[task.channel] ?? t.fill.checkGeneric(site)),
+        );
+      }
+    } catch {
+      fillNote.replaceChildren(note(t.fill.error, "error"));
+    }
+    fillButton.disabled = false;
+    fillButton.textContent = t.fill.again;
+  });
+
   render(
     flash ? note(flash.text, flash.kind) : null,
     h("h2", { textContent: `${t.types[task.type]} · ${site}` }),
-    h("p", { class: "muted", textContent: t.taskHint[task.type](site) }),
+    h("p", { class: "muted", textContent: canFill ? t.fill.hint[task.type === "UPDATE" ? "UPDATE" : "LIST"](site) : t.taskHint[task.type](site) }),
+    canFill ? h("div", { class: "detail" }, fillButton, fillNote) : null,
     p
       ? h(
           "div",

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OmniList Assistant",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Prépare vos annonces OmniList sur les sites sans API. Vous validez chaque action vous-même.",
   "author": "One Hand Business LLC",
   "minimum_chrome_version": "116",
@@ -13,12 +13,25 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage", "alarms"],
-  "host_permissions": ["https://omnilist.1handbiz.com/*", "http://localhost:3000/*"],
+  "permissions": [
+    "storage",
+    "alarms",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://omnilist.1handbiz.com/*",
+    "http://localhost:3000/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://omnilist.1handbiz.com/*", "http://localhost:3000/*"],
-      "js": ["bridge.js"],
+      "matches": [
+        "https://omnilist.1handbiz.com/*",
+        "http://localhost:3000/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
       "run_at": "document_idle"
     }
   ]
