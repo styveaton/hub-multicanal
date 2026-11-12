@@ -91,12 +91,11 @@ export default function ForgotPasswordPage() {
       method: "POST",
       body: { email, code: String(form.get("code") ?? ""), password },
     });
+    // Succès : le bouton reste « en cours » jusqu'à l'arrivée sur Produits (pas de double clic).
+    if (res.ok) return router.push("/products");
     setPending(false);
-    if (res.ok) router.push("/products");
-    else {
-      if (res.code === "code_expired") setExpiresAt(Date.now());
-      setError(res.message);
-    }
+    if (res.code === "code_expired") setExpiresAt(Date.now());
+    setError(res.message);
   }
 
   return (

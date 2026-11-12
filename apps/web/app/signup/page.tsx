@@ -28,9 +28,10 @@ export default function SignupPage() {
         password: form.get("password"),
       },
     });
+    // Succès : le bouton reste « en cours » jusqu'à l'arrivée sur Produits (pas de double clic).
+    if (res.ok) return router.push("/products");
     setPending(false);
-    if (res.ok) router.push("/products");
-    else setError(res.message);
+    setError(res.message);
   }
 
   return (
